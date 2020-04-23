@@ -319,22 +319,17 @@ Real measure_isometry(const ublas::matrix<Number, ublas::column_major>& U)
 }
 
 
-using real_test_types = boost::mpl::list<float,double>;
-
-BOOST_AUTO_TEST_CASE_TEMPLATE(
-	measure_isometry_test_simple_real, Real, real_test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_simple, Number, test_types)
 {
 	for(auto m = std::size_t{0}; m < 5; ++m)
 	{
 		for(auto n = std::size_t{0}; n <= m; ++n)
 		{
-			auto A = ublas::matrix<Real, ublas::column_major>(m, n);
-
-			std::fill( A.data().begin(), A.data().end(), Real{0} );
+			auto A = ublas::matrix<Number, ublas::column_major>(m, n, 0);
 
 			for(auto i = std::size_t{0}; i < n; ++i)
 			{
-				A(i,i) = std::pow(Real{-1}, Real(i));
+				A(i,i) = std::pow(Number{-1}, Number(i));
 			}
 
 			BOOST_CHECK_EQUAL( 0, measure_isometry(A) );
@@ -342,16 +337,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 	}
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(
-	measure_isometry_test_real, Real, real_test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_4by2, Number, test_types)
 {
-	auto A = ublas::matrix<Real, ublas::column_major>(4, 2);
+	auto A = ublas::matrix<Number, ublas::column_major>(4, 2);
 
 	// column-major order is required for this statement to work
 	std::iota( A.data().begin(), A.data().end(), 1u );
 
-	auto I = ublas::identity_matrix<Real>(2);
-	auto AT_A = ublas::matrix<Real>(2, 2);
+	auto I = ublas::identity_matrix<Number>(2);
+	auto AT_A = ublas::matrix<Number>(2, 2);
 
 	AT_A(0,0) = 30; AT_A(0,1) = 70;
 	AT_A(1,0) = 70; AT_A(1,1) =174;
@@ -1363,9 +1357,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(xGEMM_test, Real, real_test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGEMM_test, Number, test_types)
 {
-	using Matrix = ublas::matrix<Real, ublas::column_major>;
+	using Real = typename real_from<Number>::type;
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
 
 	auto gen = std::minstd_rand();
 
@@ -1375,12 +1370,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGEMM_test, Real, real_test_types)
 		{
 			auto k = std::size_t{m/2};
 			auto cond = Real{1e3};
-			auto A = make_matrix_like(Real{0}, m, k, cond, &gen);
-			auto B = make_matrix_like(Real{0}, k, n, cond, &gen);
+			auto A = make_matrix_like(Number(), m, k, cond, &gen);
+			auto B = make_matrix_like(Number(), k, n, cond, &gen);
 			auto C = ublas::prod(A, B);
 			auto D = Matrix(m, n);
-			auto alpha = Real{1};
-			auto beta = Real{0};
+			auto alpha = Number{1};
+			auto beta = Number{0};
 			auto ret = lapack::gemm(
 				'N', 'N', m, n, k,
 				alpha, &A(0,0), m, &B(0,0), k, beta, &D(0,0), m
