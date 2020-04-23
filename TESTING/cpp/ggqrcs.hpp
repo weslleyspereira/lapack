@@ -322,7 +322,7 @@ Real measure_isometry(const ublas::matrix<Number, ublas::column_major>& U)
 using real_test_types = boost::mpl::list<float,double>;
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(
-	test_measure_isometry_simple_real, Real, real_test_types)
+	measure_isometry_test_simple_real, Real, real_test_types)
 {
 	for(auto m = std::size_t{0}; m < 5; ++m)
 	{
@@ -343,7 +343,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(
-	test_measure_isometry_real, Real, real_test_types)
+	measure_isometry_test_real, Real, real_test_types)
 {
 	auto A = ublas::matrix<Real, ublas::column_major>(4, 2);
 
@@ -735,7 +735,7 @@ void check_results(
 
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(ggqrcs_simple_test, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple, Number, test_types)
 {
 	auto m = std::size_t{2};
 	auto n = std::size_t{2};
@@ -790,7 +790,7 @@ template<
 		std::is_fundamental<Number>::value, int
 	>::type* = nullptr
 >
-void ggqrcs_zero_dimensions_test_impl(Number)
+void xGGQRCS_test_zero_dimensions_impl(Number)
 {
 	using Real = typename real_from<Number>::type;
 
@@ -828,7 +828,7 @@ template<
 		!std::is_fundamental<Number>::value, int
 	>::type* = nullptr
 >
-void ggqrcs_zero_dimensions_test_impl(Number)
+void xGGQRCS_test_zero_dimensions_impl(Number)
 {
 	using Real = typename real_from<Number>::type;
 
@@ -862,14 +862,14 @@ void ggqrcs_zero_dimensions_test_impl(Number)
 	BOOST_CHECK_EQUAL( f(1, 1, 0), -6 );
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(ggqrcs_zero_dimensions_test, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_zero_dimensions, Number, test_types)
 {
-	ggqrcs_zero_dimensions_test_impl(Number{0});
+	xGGQRCS_test_zero_dimensions_impl(Number{0});
 }
 
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(ggqrcs_zero_test, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_zero_input, Number, test_types)
 {
 	auto m = std::size_t{4};
 	auto n = std::size_t{3};
@@ -886,7 +886,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ggqrcs_zero_test, Number, test_types)
 }
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(ggqrcs_rectangular_test, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_rectangular_input, Number, test_types)
 {
 	for(std::size_t m : { 2, 13, 41 })
 	{
@@ -1047,7 +1047,7 @@ ublas::matrix<Number, ublas::column_major> assemble_matrix(
 
 
 template<typename Number>
-void ggqrcs_random_test_impl(
+void xGGQRCS_test_random_impl(
 	Number dummy,
 	std::size_t m, std::size_t n, std::size_t p, std::size_t r,
 	std::uint64_t seed)
@@ -1114,7 +1114,7 @@ void ggqrcs_random_test_impl(
 }
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(ggqrcs_random_test, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_random, Number, test_types)
 {
 	constexpr std::size_t dimensions[] = { 1, 2, 3, 4, 10, 20 };
 
@@ -1136,7 +1136,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ggqrcs_random_test, Number, test_types)
 					{
 						auto seed = seed_dist(gen);
 
-						ggqrcs_random_test_impl(Number{0}, m, n, p, rank, seed);
+						xGGQRCS_test_random_impl(Number{0}, m, n, p, rank, seed);
 					}
 				}
 			}
@@ -1146,14 +1146,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(ggqrcs_random_test, Number, test_types)
 
 BOOST_TEST_DECORATOR(* boost::unit_test::disabled())
 BOOST_AUTO_TEST_CASE_TEMPLATE(
-	infinite_ggqrcs_random_test, Number, test_types)
+	xGGQRCS_test_random_infinite, Number, test_types)
 {
 	constexpr auto min_dimension = std::size_t{1};
 	constexpr auto max_dimension = std::size_t{1000};
 
 	auto master_seed = std::uintmax_t(std::time(nullptr));
 
-	std::printf("infinite_ggqrcs_random_test master_seed=%ju\n", master_seed);
+	std::printf("xGGQRCS_test_random_infinite master_seed=%ju\n", master_seed);
 
 	auto gen = std::mt19937(master_seed);
 	auto dim_dist =
@@ -1196,7 +1196,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 				last_time_sec = now_sec;
 			}
 
-			ggqrcs_random_test_impl(Number{0}, m, n, p, rank, seed);
+			xGGQRCS_test_random_impl(Number{0}, m, n, p, rank, seed);
 		}
 	}
 }
@@ -1209,7 +1209,7 @@ template<
 		std::is_fundamental<Number>::value, int
 	>::type* = nullptr
 >
-void uncsd2by1_regression_20200420_impl(Number)
+void xUNCSD2BY1_regression_20200420_impl(Number)
 {
 	using Real = typename real_from<Number>::type;
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
@@ -1252,7 +1252,7 @@ template<
 		!std::is_fundamental<Number>::value, int
 	>::type* = nullptr
 >
-void uncsd2by1_regression_20200420_impl(Number)
+void xUNCSD2BY1_regression_20200420_impl(Number)
 {
 	using Real = typename real_from<Number>::type;
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
@@ -1291,9 +1291,9 @@ void uncsd2by1_regression_20200420_impl(Number)
 	BOOST_CHECK( is_almost_isometric(U2) );
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(uncsd2by1_regression_20200420, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xUNCSD2BY1_regression_20200420, Number, test_types)
 {
-	uncsd2by1_regression_20200420_impl(Number{});
+	xUNCSD2BY1_regression_20200420_impl(Number{});
 }
 
 
@@ -1304,7 +1304,7 @@ template<
 		std::is_fundamental<Number>::value, int
 	>::type* = nullptr
 >
-void uncsd2by1_workspace_query_with_lrwork_impl(Number)
+void xUNCSD2BY1_test_workspace_query_with_lrwork_impl(Number)
 {
 	// there is no lrwork parameter for real-valued 2-by-1 CSD
 }
@@ -1315,7 +1315,7 @@ template<
 		!std::is_fundamental<Number>::value, int
 	>::type* = nullptr
 >
-void uncsd2by1_workspace_query_with_lrwork_impl(Number)
+void xUNCSD2BY1_test_workspace_query_with_lrwork_impl(Number)
 {
 	using Real = typename real_from<Number>::type;
 
@@ -1355,15 +1355,15 @@ void uncsd2by1_workspace_query_with_lrwork_impl(Number)
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(
-	uncsd2by1_workspace_query_with_lrwork, Number, test_types)
+	xUNCSD2BY1_test_workspace_query_with_lrwork, Number, test_types)
 {
-	uncsd2by1_workspace_query_with_lrwork_impl(Number{});
+	xUNCSD2BY1_test_workspace_query_with_lrwork_impl(Number{});
 }
 
 
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(test_gemm, Real, real_test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGEMM_test, Real, real_test_types)
 {
 	using Matrix = ublas::matrix<Real, ublas::column_major>;
 
