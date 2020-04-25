@@ -36,11 +36,11 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/tools/floating_point_comparison.hpp>
 
-#include <lapack.hpp>
+#include "lapack.hpp"
+#include "tools.hpp"
 
 #include <algorithm>
 #include <limits>
-#include <cmath>
 #include <cstdint>
 #include <ctime>
 #include <random>
@@ -54,113 +54,34 @@ namespace ublas = boost::numeric::ublas;
 using Integer = lapack::integer_t;
 
 
-template<typename Number>
-bool nan_p(Number x)
-{
-	return std::isnan(std::real(x)) or std::isnan(std::imag(x));
-}
-
-
-template<typename Number>
-bool inf_p(Number x)
-{
-	return std::isinf(std::real(x)) or std::isinf(std::imag(x));
-}
-
-
-template<typename Number>
-bool finite_p(Number x)
-{
-	return std::isfinite(std::real(x)) and std::isfinite(std::imag(x));
-}
-
-
-
 /**
- * Given a type `T`, `real_from<T>::type` is `T` if `T` is a built-in type,
- * otherwise is returns the numeric type used to implement `T`.
+ * This LAPACK xerbla implementation prints an error message but does not
+ * terminate the program thereby allowing the calling LAPACK function to return
+ * to its caller.
  *
- * Examples:
- * * `real_from<float>::type == float`
- * * `real_from<std::complex<float>>::type == float`
+ * @param[in] caller A string WITHOUT ZERO TERMINATOR
+ * @param[in] caller_len The length of the string referenced by caller
  */
-template<typename T> struct real_from {};
-
-template<> struct real_from<float> { using type = float; };
-template<> struct real_from<double> { using type = double; };
-template<typename Real>
-struct real_from<std::complex<Real>> { using type = Real; };
-
-static_assert(std::is_same<typename real_from<float>::type, float>::value, "");
-static_assert(std::is_same<typename real_from<double>::type,double>::value, "");
-static_assert(
-	std::is_same<typename real_from<std::complex<float>>::type,float>::value, ""
-);
-
-
-
-template<typename Real>
-struct not_a_number
+extern "C" void xerbla_(
+	const char* caller, int* p_info, std::size_t caller_len)
 {
-	static constexpr Real value = std::numeric_limits<Real>::quiet_NaN();
-};
+	BOOST_VERIFY( caller != nullptr );
+	BOOST_VERIFY( p_info != nullptr );
 
-template<typename Real>
-constexpr Real not_a_number<Real>::value;
+	// "sz" prefix taken from hungarian notation (zero-terminated string)
+	char szCaller[80];
+	auto num_bytes_to_copy = std::min(sizeof(szCaller)-1, caller_len);
 
-
-template<typename Real>
-struct not_a_number<std::complex<Real>>
-{
-	using type = std::complex<Real>;
-
-	static constexpr Real nan = std::numeric_limits<Real>::quiet_NaN();
-	static constexpr type value = type{nan, nan};
-};
-
-template<typename Real>
-constexpr std::complex<Real> not_a_number<std::complex<Real>>::value;
-
-
-
-template<typename Real>
-struct UniformDistribution
-{
-	UniformDistribution() : dist_(-1, +1) {}
-
-	template<typename Engine>
-	Real operator() (Engine& gen)
-	{
-		return dist_(gen);
-	}
-
-	std::uniform_real_distribution<Real> dist_;
-};
-
-template<typename Real>
-struct UniformDistribution<std::complex<Real>>
-{
-	using result_type = std::complex<Real>;
-
-	UniformDistribution() : dist_(-1, +1) {}
-
-	template<typename Engine>
-	result_type operator() (Engine& gen)
-	{
-		constexpr auto pi = Real{M_PI};
-		auto radius = dist_(gen);
-		auto angle = 2 * pi * dist_(gen);
-
-		return std::polar(radius, angle);
-	}
-
-	std::uniform_real_distribution<Real> dist_;
-};
-
+	std::memset(szCaller, 0, sizeof(szCaller));
+	std::strncpy(szCaller, caller, num_bytes_to_copy);
+	std::fprintf(
+		stderr, "%s: parameter %d has illegal value\n", szCaller, *p_info
+	);
+}
 
 
 template<typename T, class Storage>
-ublas::matrix<T, Storage> build_R(
+ublas::matrix<T, Storage> assemble_R(
 	std::size_t r,
 	const ublas::matrix<T, Storage>& X, const ublas::matrix<T, Storage>& Y)
 {
@@ -209,7 +130,7 @@ template<
 	typename Real = typename real_from<Number>::type
 >
 std::pair< ublas::matrix<Number, Storage>, ublas::matrix<Number, Storage> >
-build_diagonals_like(
+assemble_diagonals_like(
 	Number,
 	std::size_t m, std::size_t p, std::size_t r,
 	const ublas::vector<Real>& theta)
@@ -255,7 +176,48 @@ build_diagonals_like(
 
 
 template<typename Number>
-ublas::matrix<Number, ublas::column_major> reconstruct_matrix(
+ublas::matrix<Number, ublas::column_major> assemble_matrix(
+	const ublas::matrix<Number, ublas::column_major>& U,
+	const ublas::matrix<Number, ublas::column_major>& D,
+	const ublas::matrix<Number, ublas::column_major>& RQt)
+{
+	BOOST_VERIFY( U.size1() == U.size2() );
+	BOOST_VERIFY( U.size2() == D.size1() );
+	BOOST_VERIFY( D.size2() == RQt.size1() );
+
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
+
+	auto m = U.size1();
+	auto r = RQt.size1();
+	auto n = RQt.size2();
+
+	if(r == 0)
+		return Matrix(m, n, 0);
+
+	auto nan = not_a_number<Number>::value;
+	auto alpha = Number{1};
+	auto beta = Number{0};
+	auto DRQt = Matrix(m, n, nan);
+	auto ret = lapack::gemm(
+		'N', 'N', m, n, r, alpha, &D(0,0), m, &RQt(0,0), r, beta, &DRQt(0,0), m
+	);
+
+	BOOST_VERIFY( ret == 0 );
+
+	auto A = Matrix(m, n);
+	ret = lapack::gemm(
+		'N', 'N', m, n, m, alpha, &U(0,0), m, &DRQt(0,0), m, beta, &A(0,0), m
+	);
+
+	BOOST_VERIFY( ret == 0 );
+
+	return A;
+}
+
+
+
+template<typename Number>
+ublas::matrix<Number, ublas::column_major> assemble_matrix(
 	const ublas::matrix<Number, ublas::column_major>& U,
 	const ublas::matrix<Number, ublas::column_major>& D,
 	const ublas::matrix<Number, ublas::column_major>& R,
@@ -283,109 +245,6 @@ ublas::matrix<Number, ublas::column_major> reconstruct_matrix(
 	BOOST_VERIFY( ret == 0 );
 
 	return A;
-}
-
-
-
-/**
- * @return The Frobenius norm of U* U - I
- */
-template<
-	typename Number,
-	typename Real = typename real_from<Number>::type
->
-Real measure_isometry(const ublas::matrix<Number, ublas::column_major>& U)
-{
-	using Matrix = ublas::matrix<Number, ublas::column_major>;
-
-	BOOST_VERIFY( U.size1() >= U.size2() );
-
-	if(U.size2() == 0)
-		return 0;
-
-	auto m = U.size1();
-	auto n = U.size2();
-	auto I = ublas::identity_matrix<Number>(n);
-	auto J = Matrix(n, n);
-	auto alpha = Number{1};
-	auto beta = Number{0};
-	auto ret = lapack::gemm(
-		'C', 'N', n, n, m, alpha, &U(0,0), m, &U(0,0), m, beta, &J(0,0), n
-	);
-
-	BOOST_VERIFY( ret == 0 );
-
-	return ublas::norm_frobenius(J - I);
-}
-
-
-BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_simple, Number, test_types)
-{
-	for(auto m = std::size_t{0}; m < 5; ++m)
-	{
-		for(auto n = std::size_t{0}; n <= m; ++n)
-		{
-			auto A = ublas::matrix<Number, ublas::column_major>(m, n, 0);
-
-			for(auto i = std::size_t{0}; i < n; ++i)
-			{
-				A(i,i) = std::pow(Number{-1}, Number(i));
-			}
-
-			BOOST_CHECK_EQUAL( 0, measure_isometry(A) );
-		}
-	}
-}
-
-BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_4by2, Number, test_types)
-{
-	auto A = ublas::matrix<Number, ublas::column_major>(4, 2);
-
-	// column-major order is required for this statement to work
-	std::iota( A.data().begin(), A.data().end(), 1u );
-
-	auto I = ublas::identity_matrix<Number>(2);
-	auto AT_A = ublas::matrix<Number>(2, 2);
-
-	AT_A(0,0) = 30; AT_A(0,1) = 70;
-	AT_A(1,0) = 70; AT_A(1,1) =174;
-
-	auto expected_result = ublas::norm_frobenius(AT_A - I);
-
-	BOOST_CHECK_EQUAL( expected_result, measure_isometry(A) );
-}
-
-
-/**
- * This function checks if a matrix A might be considered orthogonal or unitary,
- * respectively, by comparing the Frobenius norm of `A*A - I` to a cut-off
- * value.
- *
- * The cut-off value is based on Inequality (19.13), Equation (3.8) in Higham:
- * "Accuracy and Stability of Numerical Algorithms".
- */
-template<
-	typename Number,
-	class Storage,
-	typename Real = typename real_from<Number>::type
->
-bool is_almost_isometric(
-	const ublas::matrix<Number, Storage>& U, Real multiplier = 4)
-{
-	BOOST_VERIFY( multiplier >= 1 );
-
-	constexpr auto eps = std::numeric_limits<Real>::epsilon();
-	auto m = U.size1();
-	auto n = U.size2();
-	auto p = std::min(m, n);
-
-	if(p == 0)
-		return true;
-
-	auto r = measure_isometry(U);
-	auto tol = std::sqrt(p) * m * n * eps;
-
-	return r <= multiplier * tol;
 }
 
 
@@ -436,7 +295,7 @@ void check_results(
 
 
 	// construct R
-	auto R = build_R(r, X, Y);
+	auto R = assemble_R(r, X, Y);
 
 	BOOST_REQUIRE_EQUAL(R.size1(), r);
 	BOOST_REQUIRE_EQUAL(R.size2(), n);
@@ -494,12 +353,12 @@ void check_results(
 
 
 	// reconstruct A, B from GSVD
-	auto ds = build_diagonals_like(Number{}, m, p, r, theta);
+	auto ds = assemble_diagonals_like(Number{}, m, p, r, theta);
 	auto& D1 = ds.first;
 	auto& D2 = ds.second;
 
-	Matrix almost_A = reconstruct_matrix(U1, D1, R, Qt);
-	Matrix almost_B = reconstruct_matrix(U2, D2, R, Qt);
+	Matrix almost_A = assemble_matrix(U1, D1, R, Qt);
+	Matrix almost_B = assemble_matrix(U2, D2, R, Qt);
 
 	auto frob_A = ublas::norm_frobenius(A);
 	auto frob_B = ublas::norm_frobenius(B);
@@ -512,6 +371,7 @@ void check_results(
 	BOOST_CHECK_LE(
 		ublas::norm_frobenius(w*B - almost_B), 10*w * (m+p) * n * frob_B * eps );
 }
+
 
 
 /**
@@ -752,32 +612,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple, Number, test_types)
 }
 
 
-/**
- * This LAPACK xerbla implementation prints an error message but does not
- * terminate the program thereby allowing the calling LAPACK function to return
- * to its caller.
- *
- * @param[in] caller A string WITHOUT ZERO TERMINATOR
- * @param[in] caller_len The length of the string referenced by f_caller
- */
-extern "C" void xerbla_(
-	const char* caller, int* p_info, std::size_t caller_len)
-{
-	BOOST_VERIFY( caller != nullptr );
-	BOOST_VERIFY( p_info != nullptr );
-
-	// "sz" prefix taken from hungarian notation (zero-terminated string)
-	char szCaller[80];
-	auto num_bytes_to_copy = std::min(sizeof(szCaller)-1, caller_len);
-
-	std::memset(szCaller, 0, sizeof(szCaller));
-	std::strncpy(szCaller, caller, num_bytes_to_copy);
-	std::fprintf(
-		stderr, "%s: parameter %d has illegal value\n", szCaller, *p_info
-	);
-}
-
-
 template<
 	typename Number,
 	typename std::enable_if<
@@ -911,135 +745,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_rectangular_input, Number, test_types
 
 
 
-/**
- * @return Matrix A with m rows, n columns, and A^* A = I.
- */
-template<
-	typename Number,
-	class Engine,
-	class Storage = ublas::column_major
->
-ublas::matrix<Number, Storage> make_isometric_matrix_like(
-	Number, std::size_t m, std::size_t n, Engine* gen)
-{
-	BOOST_VERIFY( m >= n );
-
-	using Matrix = ublas::matrix<Number, Storage>;
-
-	auto p = std::min(m, n);
-
-	if(p <= 1)
-		return ublas::identity_matrix<Number, Storage>(m, n);
-
-	auto dist = UniformDistribution<Number>();
-	auto rand = [gen, &dist] () { return dist(*gen); };
-	auto A = Matrix(m, n);
-
-	std::generate( A.data().begin(), A.data().end(), rand );
-
-	constexpr auto nan = not_a_number<Number>::value;
-	auto tau = ublas::vector<Number>(n, nan);
-	auto k = std::max(m, n);
-	auto lwork = static_cast<Integer>(2 * k * k);
-	auto work = ublas::vector<Number>(lwork, nan);
-	auto ret = lapack::geqrf(m, n, &A(0,0), m, &tau(0), &work(0), lwork);
-
-	BOOST_VERIFY( ret == 0 );
-
-	ret = lapack::ungqr(m, n, n, &A(0,0), m, &tau(0), &work(0), lwork);
-
-	BOOST_VERIFY( ret == 0 );
-	BOOST_VERIFY( is_almost_isometric(A) );
-
-	return A;
-}
-
-/**
- * @return A random m x n matrix with spectral condition number cond2.
- */
-template<
-	typename Number,
-	class Engine,
-	typename Real = typename real_from<Number>::type
->
-ublas::matrix<Number, ublas::column_major> make_matrix_like(
-	Number dummy, std::size_t m, std::size_t n, Real cond2, Engine* gen)
-{
-	using Matrix = ublas::matrix<Number, ublas::column_major>;
-	using BandedMatrix = ublas::banded_matrix<Number>;
-
-	auto p = std::min(m, n);
-
-	if(p <= 1)
-		return ublas::identity_matrix<Number, ublas::column_major>(m, n);
-
-	auto S = BandedMatrix(p, p);
-	// do not sort singular values
-	S(0,0) = 1;
-	S(1,1) = cond2;
-	auto sv_dist = std::uniform_real_distribution<Real>(1, cond2);
-
-	for(auto i = std::size_t{2}; i < p; ++i)
-		S(i,i) = sv_dist(*gen);
-
-	auto U = make_isometric_matrix_like(dummy, m, p, gen);
-	auto V = make_isometric_matrix_like(dummy, n, p, gen);
-	auto US = Matrix(ublas::prod(U, S));
-	auto alpha = Number{1};
-	auto beta = Number{0};
-	auto A = Matrix(m, n);
-	auto ret = lapack::gemm(
-		'N', 'C', m, n, p, alpha, &US(0,0), m, &V(0,0), n, beta, &A(0,0), m
-	);
-
-	BOOST_VERIFY( ret == 0 );
-
-	return A;
-}
-
-
-
-template<typename Number>
-ublas::matrix<Number, ublas::column_major> assemble_matrix(
-	const ublas::matrix<Number, ublas::column_major>& U,
-	const ublas::matrix<Number, ublas::column_major>& D,
-	const ublas::matrix<Number, ublas::column_major>& RQt)
-{
-	BOOST_VERIFY( U.size1() == U.size2() );
-	BOOST_VERIFY( U.size2() == D.size1() );
-	BOOST_VERIFY( D.size2() == RQt.size1() );
-
-	using Matrix = ublas::matrix<Number, ublas::column_major>;
-
-	auto m = U.size1();
-	auto r = RQt.size1();
-	auto n = RQt.size2();
-
-	if(r == 0)
-		return Matrix(m, n, 0);
-
-	auto nan = not_a_number<Number>::value;
-	auto alpha = Number{1};
-	auto beta = Number{0};
-	auto DRQt = Matrix(m, n, nan);
-	auto ret = lapack::gemm(
-		'N', 'N', m, n, r, alpha, &D(0,0), m, &RQt(0,0), r, beta, &DRQt(0,0), m
-	);
-
-	BOOST_VERIFY( ret == 0 );
-
-	auto A = Matrix(m, n);
-	ret = lapack::gemm(
-		'N', 'N', m, n, m, alpha, &U(0,0), m, &DRQt(0,0), m, beta, &A(0,0), m
-	);
-
-	BOOST_VERIFY( ret == 0 );
-
-	return A;
-}
-
-
-
 template<typename Number>
 void xGGQRCS_test_random_impl(
 	Number dummy,
@@ -1078,7 +783,7 @@ void xGGQRCS_test_random_impl(
 	auto R_Qt = make_matrix_like(dummy, r, n, cond_R, &gen);
 	auto U1 = make_isometric_matrix_like(dummy, m, m, &gen);
 	auto U2 = make_isometric_matrix_like(dummy, p, p, &gen);
-	auto ds = build_diagonals_like(dummy, m, p, r, theta);
+	auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
 	auto D1 = ds.first;
 	auto D2 = ds.second;
 	auto A = assemble_matrix(U1, D1, R_Qt);
@@ -1168,9 +873,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 
 	while(true)
 	{
-		auto m = dim_dist(gen) / 2;
+		auto m = (dim_dist(gen) + 1) / 2;
 		auto n = dim_dist(gen);
-		auto p = dim_dist(gen) / 2;
+		auto p = (dim_dist(gen) + 1) / 2;
 		auto max_rank = (m + p <= n) ? m + p : n;
 
 		for(auto rank = std::size_t{0}; rank <= max_rank; ++rank, ++iteration)
@@ -1196,6 +901,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 }
 
 
+//
+// certain xORCSD2BY1, xUNCSD2BY1 problems must have been fixed for xGGQRCS to
+// work; test for these problems here.
+//
 
 template<
 	typename Number,
@@ -1352,42 +1061,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 	xUNCSD2BY1_test_workspace_query_with_lrwork, Number, test_types)
 {
 	xUNCSD2BY1_test_workspace_query_with_lrwork_impl(Number{});
-}
-
-
-
-
-BOOST_AUTO_TEST_CASE_TEMPLATE(xGEMM_test, Number, test_types)
-{
-	using Real = typename real_from<Number>::type;
-	using Matrix = ublas::matrix<Number, ublas::column_major>;
-
-	auto gen = std::minstd_rand();
-
-	for(auto m = std::size_t{2}; m < 100; m += 10)
-	{
-		for(auto n = std::size_t{1}; n <= 2*m; n += 10)
-		{
-			auto k = std::size_t{m/2};
-			auto cond = Real{1e3};
-			auto A = make_matrix_like(Number(), m, k, cond, &gen);
-			auto B = make_matrix_like(Number(), k, n, cond, &gen);
-			auto C = ublas::prod(A, B);
-			auto D = Matrix(m, n);
-			auto alpha = Number{1};
-			auto beta = Number{0};
-			auto ret = lapack::gemm(
-				'N', 'N', m, n, k,
-				alpha, &A(0,0), m, &B(0,0), k, beta, &D(0,0), m
-			);
-
-			BOOST_VERIFY( ret == 0 );
-
-			auto eps = std::numeric_limits<Real>::epsilon();
-			auto norm_C = ublas::norm_frobenius(C);
-			BOOST_CHECK_LE( ublas::norm_frobenius(C-D), m*n*norm_C * eps );
-		}
-	}
 }
 
 #endif
