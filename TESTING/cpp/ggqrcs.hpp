@@ -40,9 +40,10 @@
 #include "tools.hpp"
 
 #include <algorithm>
-#include <limits>
+#include <cassert>
 #include <cstdint>
 #include <ctime>
+#include <limits>
 #include <random>
 #include <type_traits>
 #include <utility>
@@ -379,7 +380,7 @@ void check_results(
  * of xGGQRCS.
  */
 template<typename Real>
-struct QrCsCaller
+struct xGGQRCS_Caller
 {
 	using Number = Real;
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
@@ -396,12 +397,12 @@ struct QrCsCaller
 	Vector<Integer> iwork;
 
 
-	QrCsCaller(std::size_t m_, std::size_t n_, std::size_t p_)
-		: QrCsCaller(m_, n_, p_, m_, p_, m_, p_, n_)
+	xGGQRCS_Caller(std::size_t m_, std::size_t n_, std::size_t p_)
+		: xGGQRCS_Caller(m_, n_, p_, m_, p_, m_, p_, n_)
 	{}
 
 
-	QrCsCaller(
+	xGGQRCS_Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
 		std::size_t ldx_, std::size_t ldy_,
 		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldqt_
@@ -465,7 +466,7 @@ struct QrCsCaller
 
 
 template<typename Real>
-struct QrCsCaller<std::complex<Real>>
+struct xGGQRCS_Caller<std::complex<Real>>
 {
 	using Number = std::complex<Real>;
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
@@ -483,11 +484,11 @@ struct QrCsCaller<std::complex<Real>>
 	Vector<Integer> iwork;
 
 
-	QrCsCaller(std::size_t m_, std::size_t n_, std::size_t p_)
-		: QrCsCaller(m_, n_, p_, m_, p_, m_, p_, n_)
+	xGGQRCS_Caller(std::size_t m_, std::size_t n_, std::size_t p_)
+		: xGGQRCS_Caller(m_, n_, p_, m_, p_, m_, p_, n_)
 	{}
 
-	QrCsCaller(
+	xGGQRCS_Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
 		std::size_t ldx_, std::size_t ldy_,
 		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldqt_
@@ -560,7 +561,7 @@ template<typename Number, class Matrix>
 void check_results(
 	Integer ret,
 	const Matrix& A, const Matrix& B,
-	const QrCsCaller<Number> caller)
+	const xGGQRCS_Caller<Number> caller)
 {
 	auto f = [] (const Matrix& A, std::size_t m, std::size_t n) {
 		BOOST_VERIFY( A.size1() >= m );
@@ -594,7 +595,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple, Number, test_types)
 	auto m = std::size_t{2};
 	auto n = std::size_t{2};
 	auto p = std::size_t{2};
-	auto caller = QrCsCaller<Number>(m, n, p);
+	auto caller = xGGQRCS_Caller<Number>(m, n, p);
 	auto A = caller.X;
 	auto B = caller.Y;
 
@@ -702,7 +703,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_zero_input, Number, test_types)
 	auto m = std::size_t{4};
 	auto n = std::size_t{3};
 	auto p = std::size_t{2};
-	auto caller = QrCsCaller<Number>(m, n, p);
+	auto caller = xGGQRCS_Caller<Number>(m, n, p);
 	auto A = caller.X;
 	auto B = caller.Y;
 
@@ -722,7 +723,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_rectangular_input, Number, test_types
 		{
 			for(std::size_t p : {5, 11, 17})
 			{
-				auto caller = QrCsCaller<Number>(m, n, p);
+				auto caller = xGGQRCS_Caller<Number>(m, n, p);
 				auto A = caller.X;
 				auto B = caller.Y;
 
@@ -795,7 +796,7 @@ void xGGQRCS_test_random_impl(
 	auto ldu1 = m + 13;
 	auto ldu2 = p + 7;
 	auto ldqt = n + 17;
-	auto caller = QrCsCaller<Number>(m, n, p, ldx, ldy, ldu1, ldu2, ldqt);
+	auto caller = xGGQRCS_Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2, ldqt);
 
 	ublas::subrange(caller.X, 0, m, 0, n) = A;
 	ublas::subrange(caller.Y, 0, p, 0, n) = B;
@@ -1061,6 +1062,429 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 	xUNCSD2BY1_test_workspace_query_with_lrwork, Number, test_types)
 {
 	xUNCSD2BY1_test_workspace_query_with_lrwork_impl(Number{});
+}
+
+
+
+/**
+ * This structure hides the differences between real and complex implementations
+ * of xGGQRCS.
+ */
+template<typename Real>
+struct xGGSVD3_Caller
+{
+	using Number = Real;
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
+	template<typename U> using Vector = ublas::vector<U>;
+
+	Integer k = -1;
+	Integer l = -1;
+	std::size_t m, n, p;
+	std::size_t ldx, ldy, ldu1, ldu2, ldqt;
+	Matrix X, Y;
+	Matrix U1, U2, Q;
+	Vector<Real> alpha;
+	Vector<Real> beta;
+	Vector<Number> work;
+	Vector<Integer> iwork;
+
+
+	xGGSVD3_Caller(std::size_t m_, std::size_t n_, std::size_t p_)
+		: xGGSVD3_Caller(m_, n_, p_, m_, p_, m_, p_, n_)
+	{}
+
+
+	xGGSVD3_Caller(
+		std::size_t m_, std::size_t n_, std::size_t p_,
+		std::size_t ldx_, std::size_t ldy_,
+		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldqt_
+	) :
+		m(m_),
+		n(n_),
+		p(p_),
+		ldx(ldx_), ldy(ldy_),
+		ldu1(ldu1_), ldu2(ldu2_), ldqt(ldqt_),
+		X(ldx, n, 0),
+		Y(ldy, n, 0),
+		U1(ldu1, m, not_a_number<Number>::value),
+		U2(ldu2, p, not_a_number<Number>::value),
+		Q(ldqt, n, not_a_number<Number>::value),
+		alpha(n, not_a_number<Real>::value),
+		beta(n, not_a_number<Real>::value),
+		iwork(n, -1)
+	{
+		BOOST_VERIFY( m > 0 );
+		BOOST_VERIFY( n > 0 );
+		BOOST_VERIFY( p > 0 );
+		BOOST_VERIFY( ldx >= m );
+		BOOST_VERIFY( ldy >= p );
+		BOOST_VERIFY( ldu1 >= m );
+		BOOST_VERIFY( ldu2 >= p );
+		BOOST_VERIFY( ldqt >= n );
+
+		auto nan = not_a_number<Number>::value;
+
+		// query workspace size
+		auto lwork_opt_f = nan;
+		auto ret = lapack::ggsvd3(
+			'U', 'V', 'Q', m, n, p, &k, &l,
+			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&alpha(0), &beta(0),
+			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
+			&lwork_opt_f, -1,
+			&iwork(0)
+		);
+		BOOST_REQUIRE_EQUAL( ret, 0 );
+
+		// resize workspace accordingly
+		auto lwork_opt = static_cast<std::size_t>(std::real(lwork_opt_f));
+
+		work.resize( lwork_opt );
+		std::fill( work.begin(), work.end(), nan );
+	}
+
+
+	Integer operator() ()
+	{
+		return lapack::ggsvd3(
+			'U', 'V', 'Q', m, n, p, &k, &l,
+			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&alpha(0), &beta(0),
+			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
+			&work(0), work.size(),
+			&iwork(0)
+		);
+	}
+};
+
+
+template<typename Real>
+struct xGGSVD3_Caller<std::complex<Real>>
+{
+	using Number = std::complex<Real>;
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
+	template<typename U> using Vector = ublas::vector<U>;
+
+	Integer k = -1;
+	Integer l = -1;
+	std::size_t m, n, p;
+	std::size_t ldx, ldy, ldu1, ldu2, ldqt;
+	Matrix X, Y;
+	Matrix U1, U2, Q;
+	Vector<Real> alpha, beta;
+	Vector<Number> work;
+	Vector<Real> rwork;
+	Vector<Integer> iwork;
+
+
+	xGGSVD3_Caller(std::size_t m_, std::size_t n_, std::size_t p_)
+		: xGGSVD3_Caller(m_, n_, p_, m_, p_, m_, p_, n_)
+	{}
+
+	xGGSVD3_Caller(
+		std::size_t m_, std::size_t n_, std::size_t p_,
+		std::size_t ldx_, std::size_t ldy_,
+		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldqt_
+	) :
+		m(m_),
+		n(n_),
+		p(p_),
+		ldx(ldx_), ldy(ldy_),
+		ldu1(ldu1_), ldu2(ldu2_), ldqt(ldqt_),
+		X(ldx, n, 0),
+		Y(ldy, n, 0),
+		U1(ldu1, m, not_a_number<Number>::value),
+		U2(ldu2, p, not_a_number<Number>::value),
+		Q(ldqt, n, not_a_number<Number>::value),
+		alpha(n, not_a_number<Real>::value),
+		beta(n, not_a_number<Real>::value),
+		rwork(n, not_a_number<Real>::value),
+		iwork(n, -1)
+	{
+		BOOST_VERIFY( m > 0 );
+		BOOST_VERIFY( n > 0 );
+		BOOST_VERIFY( p > 0 );
+		BOOST_VERIFY( ldx >= m );
+		BOOST_VERIFY( ldy >= p );
+		BOOST_VERIFY( ldu1 >= m );
+		BOOST_VERIFY( ldu2 >= p );
+		BOOST_VERIFY( ldqt >= n );
+
+		// query workspace size
+		auto nan = not_a_number<Number>::value;
+		auto lwork_opt_f = nan;
+		auto ret = lapack::ggsvd3(
+			'U', 'V', 'Q', m, n, p, &k, &l,
+			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&alpha(0), &beta(0),
+			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
+			&lwork_opt_f, -1, &rwork(0), &iwork(0) );
+		BOOST_REQUIRE_EQUAL( ret, 0 );
+
+		auto lwork_opt = static_cast<std::size_t>(std::real(lwork_opt_f));
+
+		work.resize( lwork_opt );
+		std::fill( work.begin(), work.end(), nan );
+	}
+
+	Integer operator() ()
+	{
+		return lapack::ggsvd3(
+			'U', 'V', 'Q', m, n, p, &k, &l,
+			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&alpha(0), &beta(0),
+			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
+			&work(0), work.size(),
+			&rwork(0),
+			&iwork(0)
+		);
+	}
+};
+
+
+/**
+ * This function assembles the diagonal matrices of a generalized SVD with the
+ * values computed by xGGSVD3.
+ */
+template<
+	typename Number,
+	class Storage = ublas::column_major,
+	typename Real = typename real_from<Number>::type
+>
+std::pair< ublas::matrix<Number, Storage>, ublas::matrix<Number, Storage> >
+assemble_diagonals_like(
+	Number,
+	std::size_t m, std::size_t p,
+	std::size_t k, std::size_t l,
+	const ublas::vector<Real>& alpha,
+	const ublas::vector<Real>& beta)
+{
+	using Matrix = ublas::matrix<Number, Storage>;
+	using IdentityMatrix = ublas::identity_matrix<Number>;
+
+	BOOST_VERIFY( k+l <= m+p );
+
+	auto r = k + l;
+	auto D1 = Matrix(m, r, 0);
+	auto D2 = Matrix(p, r, 0);
+
+	ublas::subrange(D1, 0, k, 0, k) = IdentityMatrix(k);
+
+	if(m >= r)
+	{
+		for(auto i = std::size_t{0}; i < l; ++i)
+		{
+			D1(k+i,k+i) = alpha(k+i);
+			D2(0+i,k+i) = beta(k+i);
+		}
+	}
+	else
+	{
+		assert( k <= m );
+
+		ublas::subrange(D2, m-k, l, m, r) = IdentityMatrix(r-m);
+
+		for(auto i = std::size_t{0}; i < m-k; ++i)
+		{
+			D1(k+i,k+i) = alpha(k+i);
+			D2(0+i,k+i) = beta(k+i);
+		}
+	}
+
+	return std::make_pair(D1, D2);
+}
+
+
+template<typename T, class Storage>
+ublas::matrix<T, Storage> assemble_R(
+	std::size_t k, std::size_t l,
+	const ublas::matrix<T, Storage>& X, const ublas::matrix<T, Storage>& Y)
+{
+	BOOST_VERIFY( X.size2() == Y.size2() );
+
+	using Matrix = ublas::matrix<T, Storage>;
+	using MatrixRange = ublas::matrix_range<Matrix>;
+	using ConstMatrixRange = ublas::matrix_range<const Matrix>;
+	using BandedAdaptor = ublas::banded_adaptor<ConstMatrixRange>;
+
+	auto m = X.size1();
+	auto n = X.size2();
+	auto r = k + l;
+	auto R = Matrix(r, n, 0);
+
+	if(r <= m)
+	{
+		MatrixRange R12 = ublas::subrange(R, 0, r, n-r, n);
+		ConstMatrixRange X1 = ublas::subrange(X, 0, r, n-r, n);
+		BandedAdaptor X1U(X1, 0, r);
+
+		R12 = X1U;
+	}
+	else
+	{
+		MatrixRange R12 = ublas::subrange(R, 0, m, n-r, n);
+		MatrixRange R22 = ublas::subrange(R, m, r, n+m-r, n);
+
+		ConstMatrixRange X1 = ublas::subrange(X, 0, m, n-r, n);
+		ConstMatrixRange Y1 = ublas::subrange(Y, m-k, l, n-r+m, n);
+
+		BandedAdaptor X1U(X1, 0, r);
+		BandedAdaptor Y1U(Y1, 0, r);
+
+		R12 = X1U;
+		R22 = Y1U;
+	}
+
+	return R;
+}
+
+
+BOOST_TEST_DECORATOR(* boost::unit_test::disabled())
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_types)
+{
+	using Real = typename real_from<Number>::type;
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
+
+	auto master_seed = std::uintmax_t(std::time(nullptr));
+
+	std::printf(
+		"xGGQRCS_test_xGGSVD3_comparison master_seed=%ju\n",
+		master_seed
+	);
+
+	auto gen = std::mt19937(master_seed);
+
+	gen.discard(1u << 17);
+
+	std::printf(
+		"%3s %3s %3s %4s  %8s %8s\n",
+		"m", "n", "p", "rank", "delta_A", "delta_B"
+	);
+
+	for(auto dim = std::size_t{10}; dim <= 50; dim += 10)
+	{
+		auto m = dim + 1;
+		auto n = 2 * dim;
+		auto p = dim;
+		auto r = std::min( m+p, n );
+
+		BOOST_TEST_CONTEXT("m=" << m) {
+		BOOST_TEST_CONTEXT("n=" << n) {
+		BOOST_TEST_CONTEXT("p=" << p) {
+		BOOST_TEST_CONTEXT("rank=" << r) {
+
+		auto nan = not_a_number<Number>::value;
+		auto real_nan = not_a_number<Real>::value;
+		auto eps = std::numeric_limits<Real>::epsilon();
+		auto dummy = nan;
+		auto A = Matrix(1, 1, nan);
+		auto B = Matrix(1, 1, nan);
+		auto norm_A = real_nan;
+		auto norm_B = real_nan;
+		// make odd for easy median computation
+		auto num_iterations = std::size_t{101};
+		auto delta_A_qrcs = ublas::vector<Real>(num_iterations, real_nan);
+		auto delta_B_qrcs = ublas::vector<Real>(num_iterations, real_nan);
+		auto delta_A_svd3 = ublas::vector<Real>(num_iterations, real_nan);
+		auto delta_B_svd3 = ublas::vector<Real>(num_iterations, real_nan);
+
+		for(auto i = std::size_t{0}; i < num_iterations; ++i)
+		{
+			auto qrcs = xGGQRCS_Caller<Number>(m, n, p);
+			auto svd3 = xGGSVD3_Caller<Number>(p, n, m);
+
+			// set up matrices
+			{
+				auto k = std::min( {m, p, r, m + p - r} );
+				auto theta_dist =
+					std::uniform_real_distribution<Real>(0, M_PI/2);
+				auto theta = ublas::vector<Real>(k, real_nan);
+
+				std::generate(
+					theta.begin(), theta.end(),
+					[&gen, &theta_dist](){ return theta_dist(gen); }
+				);
+
+				auto max_log_cond_R =
+					static_cast<Real>(std::numeric_limits<Real>::digits);
+				auto cond_R = std::pow(Real{2}, max_log_cond_R);
+				auto R_Qt = make_matrix_like(dummy, r, n, cond_R, &gen);
+				auto U1 = make_isometric_matrix_like(dummy, m, m, &gen);
+				auto U2 = make_isometric_matrix_like(dummy, p, p, &gen);
+				auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
+				auto D1 = ds.first;
+				auto D2 = ds.second;
+
+				A = assemble_matrix(U1, D1, R_Qt);
+				B = assemble_matrix(U2, D2, R_Qt);
+
+				qrcs.X = A; qrcs.Y = B;
+				svd3.X = B; svd3.Y = A;
+
+				norm_A = ublas::norm_frobenius(A);
+				norm_B = ublas::norm_frobenius(B);
+			}
+
+			auto ret = qrcs();
+
+			{
+				auto R = assemble_R(qrcs.rank, qrcs.X, qrcs.Y);
+				auto ds = assemble_diagonals_like(
+					dummy, m, p, qrcs.rank, qrcs.theta
+				);
+				auto& D1 = ds.first;
+				auto& D2 = ds.second;
+				auto almost_A = assemble_matrix(qrcs.U1, D1, R, qrcs.Qt);
+				auto almost_B = assemble_matrix(qrcs.U2, D2, R, qrcs.Qt);
+
+				delta_A_qrcs[i] =
+					ublas::norm_frobenius(A-almost_A) / (eps * norm_A);
+				delta_B_qrcs[i] =
+					ublas::norm_frobenius(B-almost_B) / (eps * norm_B);
+			}
+
+			ret = svd3();
+
+			BOOST_VERIFY(  ret == 0 );
+
+			{
+				auto R = assemble_R(svd3.k, svd3.l, svd3.X, svd3.Y);
+				auto ds = assemble_diagonals_like(
+					Number{}, p, m, svd3.k, svd3.l, svd3.alpha, svd3.beta
+				);
+				auto& D1 = ds.first;
+				auto& D2 = ds.second;
+				auto Qt = Matrix(ublas::herm(svd3.Q));
+				auto almost_A = assemble_matrix(svd3.U2, D2, R, Qt);
+				auto almost_B = assemble_matrix(svd3.U1, D1, R, Qt);
+
+				delta_A_svd3[i] =
+					ublas::norm_frobenius(A-almost_A) / (eps * norm_A);
+				delta_B_svd3[i] =
+					ublas::norm_frobenius(B-almost_B) / (eps * norm_B);
+			}
+		}
+
+		auto k = num_iterations-1;
+
+		std::sort(delta_A_qrcs.begin(), delta_A_qrcs.end());
+		std::sort(delta_B_qrcs.begin(), delta_B_qrcs.end());
+		std::sort(delta_A_svd3.begin(), delta_A_svd3.end());
+		std::sort(delta_B_svd3.begin(), delta_B_svd3.end());
+
+		std::printf(
+			"%3zu %3zu %3zu %4zu  %8.2e %8.2e  %8.2e %8.2e\n",
+			m, n, p, r,
+			delta_A_qrcs[k/2] / delta_A_svd3[k/2],
+			delta_B_qrcs[k/2] / delta_B_svd3[k/2],
+			delta_A_qrcs[k] / delta_A_svd3[k],
+			delta_B_qrcs[k] / delta_B_svd3[k]
+		);
+	}
+	}
+	}
+	}
+	}
 }
 
 #endif

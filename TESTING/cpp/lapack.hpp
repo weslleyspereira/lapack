@@ -30,10 +30,6 @@
 
 #include <config.h>
 
-#if not defined HAS_GGSVD3
-# include <algorithm>
-#endif
-
 #ifdef USE_MKL
 # include <mkl.h>
 #else
@@ -500,7 +496,6 @@ inline integer_t ggqrcs(
 
 
 
-#ifdef HAS_GGSVD3
 inline integer_t ggsvd3(
 	char jobu, char jobv, char jobq, integer_t m, integer_t n, integer_t p,
 	integer_t* p_k, integer_t* p_l,
@@ -532,7 +527,70 @@ inline integer_t ggsvd3(
 		work, &lwork, iwork, &info);
 	return info;
 }
-#endif
+
+inline integer_t ggsvd3(
+	char jobu, char jobv, char jobq,
+	integer_t m, integer_t n, integer_t p,
+	integer_t* p_k, integer_t* p_l,
+	std::complex<float>* A, integer_t lda,
+	std::complex<float>* B, integer_t ldb,
+	float* alpha, float* beta,
+	std::complex<float>* U, integer_t ldu,
+	std::complex<float>* V, integer_t ldv,
+	std::complex<float>* Q, integer_t ldq,
+	std::complex<float>* work, integer_t lwork,
+	float* rwork,
+	integer_t* iwork)
+{
+	integer_t info = -1;
+	cggsvd3_(
+		&jobu, &jobv, &jobq,
+		&m, &n, &p, p_k, p_l,
+		reinterpret_cast<float _Complex*>(A), &lda,
+		reinterpret_cast<float _Complex*>(B), &ldb,
+		alpha, beta,
+		reinterpret_cast<float _Complex*>(U), &ldu,
+		reinterpret_cast<float _Complex*>(V), &ldv,
+		reinterpret_cast<float _Complex*>(Q), &ldq,
+		reinterpret_cast<float _Complex*>(work), &lwork,
+		rwork,
+		iwork,
+		&info
+	);
+	return info;
+}
+
+inline integer_t ggsvd3(
+	char jobu, char jobv, char jobq,
+	integer_t m, integer_t n, integer_t p,
+	integer_t* p_k, integer_t* p_l,
+	std::complex<double>* A, integer_t lda,
+	std::complex<double>* B, integer_t ldb,
+	double* alpha, double* beta,
+	std::complex<double>* U, integer_t ldu,
+	std::complex<double>* V, integer_t ldv,
+	std::complex<double>* Q, integer_t ldq,
+	std::complex<double>* work, integer_t lwork,
+	double* rwork,
+	integer_t* iwork)
+{
+	integer_t info = -1;
+	zggsvd3_(
+		&jobu, &jobv, &jobq,
+		&m, &n, &p, p_k, p_l,
+		reinterpret_cast<double _Complex*>(A), &lda,
+		reinterpret_cast<double _Complex*>(B), &ldb,
+		alpha, beta,
+		reinterpret_cast<double _Complex*>(U), &ldu,
+		reinterpret_cast<double _Complex*>(V), &ldv,
+		reinterpret_cast<double _Complex*>(Q), &ldq,
+		reinterpret_cast<double _Complex*>(work), &lwork,
+		rwork,
+		iwork,
+		&info
+	);
+	return info;
+}
 
 
 
