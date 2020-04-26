@@ -17,59 +17,33 @@ include_directories(${CMAKE_SOURCE_DIR}/LAPACKE/include)
 
 
 if(BUILD_SINGLE)
-	add_executable(cpp_tests_single
-		main.cpp
-		sggqrcs.cpp)
-	target_link_libraries(cpp_tests_single
-		tmglib
-		${LAPACK_LIBRARIES}
-		${Boost_LIBRARIES})
-
-
-	add_test(NAME cpp_tests_single COMMAND cpp_tests_single)
+	add_executable(SGGQRCS_tests main.cpp sggqrcs.cpp)
+	target_link_libraries(
+		SGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+	)
+	add_test(NAME SGGQRCS_tests COMMAND SGGQRCS_tests)
 endif()
-
 
 if(BUILD_DOUBLE)
-	add_executable(cpp_tests_double
-		main.cpp
-		dggqrcs.cpp)
-	target_link_libraries(cpp_tests_double
-		tmglib
-		${LAPACK_LIBRARIES}
-		${Boost_LIBRARIES})
-
-
-	add_test(NAME cpp_tests_double COMMAND cpp_tests_double)
-
-
-	add_executable(dggsvd_vs_dggqrcs ggsvd_vs_ggqrcs.cpp)
+	add_executable(DGGQRCS_tests main.cpp dggqrcs.cpp)
 	target_link_libraries(
-		dggsvd_vs_dggqrcs ${LAPACK_LIBRARIES} ${Boost_LIBRARIES})
+		DGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+	)
+	add_test(NAME DGGQRCS_tests COMMAND DGGQRCS_tests)
 endif()
-
 
 if(BUILD_COMPLEX)
-	add_executable(cpp_tests_complex
-		main.cpp
-		cggqrcs.cpp)
-	target_link_libraries(cpp_tests_complex
-		tmglib
-		${LAPACK_LIBRARIES}
-		${Boost_LIBRARIES})
-
-	add_test(NAME cpp_tests_complex COMMAND cpp_tests_complex)
+	add_executable(CGGQRCS_tests main.cpp cggqrcs.cpp)
+	target_link_libraries(
+		CGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+	)
+	add_test(NAME CGGQRCS_tests COMMAND CGGQRCS_tests)
 endif()
 
-
 if(BUILD_COMPLEX16)
-	add_executable(cpp_tests_complex16
-		main.cpp
-		zggqrcs.cpp)
-	target_link_libraries(cpp_tests_complex16
-		tmglib
-		${LAPACK_LIBRARIES}
-		${Boost_LIBRARIES})
-
-	add_test(NAME cpp_tests_complex16 COMMAND cpp_tests_complex16)
+	add_executable(ZGGQRCS_tests main.cpp zggqrcs.cpp)
+	target_link_libraries(
+		ZGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+	)
+	add_test(NAME ZGGQRCS_tests COMMAND ZGGQRCS_tests)
 endif()
