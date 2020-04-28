@@ -28,6 +28,8 @@
 #ifndef LAPACK_TESTS_TOOLS_HPP
 #define LAPACK_TESTS_TOOLS_HPP
 
+#include <boost/numeric/ublas/banded.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include "lapack.hpp"
