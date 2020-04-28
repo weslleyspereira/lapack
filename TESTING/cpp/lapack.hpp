@@ -158,6 +158,15 @@ extern "C"
 		lapack_int* info,
 		std::size_t order_len
 	);
+
+	void dlasrti_(
+		char* order,
+		lapack_int* n,
+		double* x,
+		lapack_int* indices,
+		lapack_int* info,
+		std::size_t order_len
+	);
 }
 
 
@@ -819,6 +828,18 @@ inline integer_t lasrti(
 	return info;
 }
 
+inline integer_t lasrti(
+	char order,
+	integer_t n,
+	double* x,
+	integer_t* indices
+)
+{
+	integer_t info = -1;
+	dlasrti_(&order, &n, x, indices, &info, 1);
+
+	return info;
+}
 
 
 inline integer_t pstrf(

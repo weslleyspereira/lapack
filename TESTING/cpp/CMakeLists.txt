@@ -36,6 +36,13 @@ if(BUILD_DOUBLE)
 		DGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
 	)
 	add_test(NAME DGGQRCS_tests COMMAND DGGQRCS_tests)
+
+	add_executable(DLASRTI_tests main.cpp dlasrti.cpp)
+	target_link_libraries(
+		DLASRTI_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+	)
+	add_test(NAME DLASRTI_tests COMMAND DLASRTI_tests)
+
 endif()
 
 if(BUILD_COMPLEX)
