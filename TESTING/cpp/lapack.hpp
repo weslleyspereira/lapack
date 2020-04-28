@@ -149,6 +149,15 @@ extern "C"
 		std::size_t jobu1_len, std::size_t jobu2_len, std::size_t jobqt_len
 	);
 
+
+	void slasrti_(
+		char* order,
+		lapack_int* n,
+		float* x,
+		lapack_int* indices,
+		lapack_int* info,
+		std::size_t order_len
+	);
 }
 
 
@@ -794,6 +803,20 @@ inline void laset(
 	double alpha, double beta, double* A, integer_t lda )
 {
 	dlaset_( &uplo, &m, &n, &alpha, &beta, A, &lda );
+}
+
+
+inline integer_t lasrti(
+	char order,
+	integer_t n,
+	float* x,
+	integer_t* indices
+)
+{
+	integer_t info = -1;
+	slasrti_(&order, &n, x, indices, &info, 1);
+
+	return info;
 }
 
 
