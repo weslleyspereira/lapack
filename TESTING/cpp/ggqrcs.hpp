@@ -33,6 +33,7 @@
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/triangular.hpp>
 #include <boost/numeric/ublas/vector.hpp>
+#include <boost/numeric/ublas/vector_proxy.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/test/tools/floating_point_comparison.hpp>
 
@@ -741,6 +742,143 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_rectangular_input, Number, test_types
 				BOOST_CHECK_EQUAL( caller.w, 1 );
 			}
 		}
+	}
+}
+
+
+
+/**
+ * This test checks the generalized singular values computed by xGGQRCS when
+ * the matrices `A` and `B` differ significantly in norm.
+ *
+ * The GSVD allows us to decompose `A` and `B` into
+ * * `A = U1 S R Q^*`,
+ * * `B = U2 C R Q^*`,
+ *
+ * where
+ * * `Q^*` is the complex-conjugate transpose of `Q`,
+ * * `U1, `U2`, `Q` are unitary, and
+ * * `S`, `C` are diagonal matrices which values `s_ii` and `c_ii` such that
+ *   `s_ii/c_ii` is one of the generalized singular values of the matrix pencil
+ *   `(A, B)`.
+ *
+ * To generate matrices, `A`, `B` with `A` much larger in norm than `B`, we
+ * compute
+ * * a random matrix `R Q^*`, and
+ * * generalized singular values such that `s_ii >> c_ii`.
+ */
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
+{
+	// Numbers of the form 4n+1 are used here so that the the median as well as
+	// the 25th and the 75th percentiles can be computed easily for the
+	// five-number summary.
+	// (Sort the values xs and use xs[0], xs[n/4], xs[n/2], xs[n/4*3], xs[n-1].)
+
+	using Real = typename real_from<Number>::type;
+
+	auto gen = std::mt19937();
+
+	gen.discard(1u << 17);
+
+	for(auto d = std::size_t{10}; d <= 50; d += 10)
+	{
+		auto real_nan = not_a_number<Real>::value;
+		auto stats = ublas::vector<Real>(5, 0);
+		auto num_iterations = 100 * d / 4 * 4 + 1;
+		auto rel_norms = ublas::vector<Real>(num_iterations, real_nan);
+
+		for(auto it = std::size_t{0}; it < num_iterations; ++it)
+		{
+			auto m = d;
+			auto n = d/4*4 + 1;
+			auto p = d;
+			auto r = std::min(m+p, n);
+			auto k = std::min( {m, p, r, m + p - r} );
+
+			BOOST_VERIFY(k > 0);
+
+			// The range on the right-hand side is tuned for single-precision
+			// floats.
+			// Potential precision-independent solution:
+			//   d := std::numeric_limits<Real>::digits
+			//   interval [M_PI/(d/2)*(d/4-1), M_PI/(d/2))
+			auto theta_dist =
+				std::uniform_real_distribution<Real>(M_PI/1024*511, M_PI/2);
+			auto theta = ublas::vector<Real>(k, real_nan);
+
+			std::generate(
+				theta.begin(), theta.end(),
+				[&gen, &theta_dist](){ return theta_dist(gen); }
+			);
+			std::sort(theta.begin(), theta.end());
+
+			auto dummy = Number{};
+			// Do not condition `R` too badly or we cannot directly compare the
+			// computed generalized singular values with the generated singular
+			// values.
+			auto cond_R =
+				static_cast<Real>(1 << (std::numeric_limits<Real>::digits/2));
+			auto RQt = make_matrix_like(dummy, r, n, cond_R, &gen);
+			auto U1 = make_isometric_matrix_like(dummy, m, m, &gen);
+			auto U2 = make_isometric_matrix_like(dummy, p, p, &gen);
+			auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
+			auto D1 = ds.first;
+			auto D2 = ds.second;
+			auto A = assemble_matrix(U1, D1, RQt);
+			auto B = assemble_matrix(U2, D2, RQt);
+			auto caller = xGGQRCS_Caller<Number>(m, n, p);
+
+			caller.X = A;
+			caller.Y = B;
+
+			auto ret = caller();
+
+			check_results(ret, A, B, caller);
+
+			BOOST_VERIFY(ret == 0);
+			BOOST_REQUIRE_LE(caller.rank, r);
+
+			auto s = static_cast<std::size_t>(caller.rank);
+			auto l = std::min({m, p, s, m+p-s});
+			auto iota = ublas::subrange(caller.theta, 0, l);
+
+			BOOST_REQUIRE_EQUAL(l, k);
+			BOOST_REQUIRE_EQUAL(l % 4, 0);
+
+			for(auto i = std::size_t{0}; i < l; ++i)
+			{
+				iota(i) = std::abs(iota(i) - theta(i)) / theta(i);
+			}
+
+			std::sort(iota.begin(), iota.end());
+
+			stats(0) = std::min(stats(0), iota(0));
+			stats(1) += iota(1*l/4);
+			stats(2) += iota(2*l/4);
+			stats(3) += iota(3*l/4);
+			stats(4) = std::max(stats(4), iota(l-1));
+
+			rel_norms(it) = ublas::norm_frobenius(A) / ublas::norm_frobenius(B);
+		}
+
+		stats(1) /= num_iterations;
+		stats(2) /= num_iterations;
+		stats(3) /= num_iterations;
+
+		std::sort(rel_norms.begin(), rel_norms.end());
+
+		auto rel_norm_0 =   rel_norms(num_iterations/4*0);
+		auto rel_norm_25 =  rel_norms(num_iterations/4*1);
+		auto rel_norm_50 =  rel_norms(num_iterations/4*2);
+		auto rel_norm_75 =  rel_norms(num_iterations/4*3);
+		auto rel_norm_100 = rel_norms(num_iterations/4*4);
+
+		std::printf(
+			"%2zu  %8.2e %8.2e %8.2e %8.2e %8.2e  %8.2e %8.2e %8.2e %8.2e %8.2e\n",
+			d,
+			rel_norm_0, rel_norm_25, rel_norm_50, rel_norm_75, rel_norm_100,
+			stats(0), stats(1), stats(2), stats(3), stats(4)
+		);
 	}
 }
 
