@@ -406,7 +406,7 @@ set(ZLASRC
    zlarcm.f zlarf.f  zlarfb.f zlarfb_gett.f
    zlarfg.f zlarfgp.f zlarft.f
    zlarfx.f zlarfy.f zlargv.f zlarnv.f zlarrv.f zlartg.f zlartv.f
-   zlarz.f  zlarzb.f zlarzt.f zlascl.f zlaset.f zlasr.f
+   zlarz.f  zlarzb.f zlarzt.f zlascl.f zlaset.f zlasr.f zlasrtr.f
    zlassq.f zlaswp.f zlasyf.f zlasyf_rook.f zlasyf_rk.f zlasyf_aa.f
    zlatbs.f zlatdf.f zlatps.f zlatrd.f zlatrs.f zlatrz.f zlauu2.f
    zlauum.f zpbcon.f zpbequ.f zpbrfs.f zpbstf.f zpbsv.f
