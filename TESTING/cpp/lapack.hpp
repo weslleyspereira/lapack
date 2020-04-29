@@ -179,6 +179,17 @@ extern "C"
 		lapack_int* info,
 		lapack_int order_len
 	);
+
+	void dlasrtr_(
+		char* order,
+		lapack_int* m,
+		lapack_int* n,
+		double* A, lapack_int* lda,
+		lapack_int* ipvt,
+		double* work,
+		lapack_int* info,
+		lapack_int order_len
+	);
 }
 
 
@@ -884,6 +895,21 @@ inline integer_t lasrtr(
 {
 	integer_t info = -1;
 	slasrtr_(&order, &m, &n, A, &lda, ipvt, work, &info, 1);
+
+	return info;
+}
+
+inline integer_t lasrtr(
+	char order,
+	integer_t m,
+	integer_t n,
+	double* A, integer_t lda,
+	integer_t* ipvt,
+	double* work
+)
+{
+	integer_t info = -1;
+	dlasrtr_(&order, &m, &n, A, &lda, ipvt, work, &info, 1);
 
 	return info;
 }
