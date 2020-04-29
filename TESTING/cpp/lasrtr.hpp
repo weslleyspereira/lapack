@@ -63,9 +63,9 @@ void xLASRTR_test_simple_impl(Number)
 
 	BOOST_REQUIRE_EQUAL( ret, 0 );
 
-	BOOST_CHECK_EQUAL( A(0,0), 3 );
-	BOOST_CHECK_EQUAL( A(1,0), 2 );
-	BOOST_CHECK_EQUAL( A(2,0), 1 );
+	BOOST_CHECK_EQUAL( A(0,0), Number{3} );
+	BOOST_CHECK_EQUAL( A(1,0), Number{2} );
+	BOOST_CHECK_EQUAL( A(2,0), Number{1} );
 
 	BOOST_CHECK_EQUAL( ipvt[0], 3 );
 	BOOST_CHECK_EQUAL( ipvt[1], 2 );
@@ -79,9 +79,9 @@ void xLASRTR_test_simple_impl(Number)
 
 	BOOST_REQUIRE_EQUAL( ret, 0 );
 
-	BOOST_CHECK_EQUAL( A(0,0), 1 );
-	BOOST_CHECK_EQUAL( A(1,0), 2 );
-	BOOST_CHECK_EQUAL( A(2,0), 3 );
+	BOOST_CHECK_EQUAL( A(0,0), Number{1} );
+	BOOST_CHECK_EQUAL( A(1,0), Number{2} );
+	BOOST_CHECK_EQUAL( A(2,0), Number{3} );
 
 	BOOST_CHECK_EQUAL( ipvt[0], 3 );
 	BOOST_CHECK_EQUAL( ipvt[1], 2 );

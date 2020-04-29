@@ -190,6 +190,28 @@ extern "C"
 		lapack_int* info,
 		lapack_int order_len
 	);
+
+	void clasrtr_(
+		char* order,
+		lapack_int* m,
+		lapack_int* n,
+		std::complex<float>* A, lapack_int* lda,
+		lapack_int* ipvt,
+		float* rwork,
+		lapack_int* info,
+		lapack_int order_len
+	);
+
+	void zlasrtr_(
+		char* order,
+		lapack_int* m,
+		lapack_int* n,
+		std::complex<double>* A, lapack_int* lda,
+		lapack_int* ipvt,
+		double* rwork,
+		lapack_int* info,
+		lapack_int order_len
+	);
 }
 
 
@@ -801,6 +823,30 @@ inline void lapmr(
 	dlapmr_( &iforward, &m, &n, A, &lda, piv );
 }
 
+inline void lapmr(
+	bool forward, integer_t m, integer_t n,
+	std::complex<float>* A, integer_t lda, integer_t* piv)
+{
+	integer_t iforward = forward ? 1 : 0;
+	clapmr_(
+		&iforward, &m, &n,
+		reinterpret_cast<float _Complex*>(A), &lda,
+		piv
+	);
+}
+
+inline void lapmr(
+	bool forward, integer_t m, integer_t n,
+	std::complex<double>* A, integer_t lda, integer_t* piv)
+{
+	integer_t iforward = forward ? 1 : 0;
+	zlapmr_(
+		&iforward, &m, &n,
+		reinterpret_cast<double _Complex*>(A), &lda,
+		piv
+	);
+}
+
 
 
 inline void lapmt(
@@ -910,6 +956,36 @@ inline integer_t lasrtr(
 {
 	integer_t info = -1;
 	dlasrtr_(&order, &m, &n, A, &lda, ipvt, work, &info, 1);
+
+	return info;
+}
+
+inline integer_t lasrtr(
+	char order,
+	integer_t m,
+	integer_t n,
+	std::complex<float>* A, integer_t lda,
+	integer_t* ipvt,
+	float* rwork
+)
+{
+	integer_t info = -1;
+	clasrtr_(&order, &m, &n, A, &lda, ipvt, rwork, &info, 1);
+
+	return info;
+}
+
+inline integer_t lasrtr(
+	char order,
+	integer_t m,
+	integer_t n,
+	std::complex<double>* A, integer_t lda,
+	integer_t* ipvt,
+	double* rwork
+)
+{
+	integer_t info = -1;
+	zlasrtr_(&order, &m, &n, A, &lda, ipvt, rwork, &info, 1);
 
 	return info;
 }
