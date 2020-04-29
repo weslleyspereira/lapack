@@ -148,7 +148,7 @@ void xLASRTR_test_random_impl(Number)
 				BOOST_CHECK_GE( ublas::norm_inf(x), ublas::norm_inf(y) );
 			}
 
-			auto finite_p = [] (Number x) { return std::isfinite(x); };
+			auto finite_p = [] (Real x) { return std::isfinite(x); };
 
 			if(m > 1)
 				BOOST_REQUIRE(std::all_of(work.begin(), work.end(), finite_p));
