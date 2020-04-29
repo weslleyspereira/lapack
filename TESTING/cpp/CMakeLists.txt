@@ -28,6 +28,12 @@ if(BUILD_SINGLE)
 		SLASRTI_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
 	)
 	add_test(NAME SLASRTI_tests COMMAND SLASRTI_tests)
+
+	add_executable(SLASRTR_tests main.cpp slasrtr.cpp)
+	target_link_libraries(
+        SLASRTR_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+	)
+    add_test(NAME SLASRTR_tests COMMAND SLASRTR_tests)
 endif()
 
 if(BUILD_DOUBLE)
