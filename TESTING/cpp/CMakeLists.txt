@@ -49,6 +49,11 @@ if(BUILD_DOUBLE)
 	)
 	add_test(NAME DLASRTI_tests COMMAND DLASRTI_tests)
 
+	add_executable(DLASRTR_tests main.cpp dlasrtr.cpp)
+	target_link_libraries(
+        DLASRTR_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+	)
+    add_test(NAME DLASRTR_tests COMMAND DLASRTR_tests)
 endif()
 
 if(BUILD_COMPLEX)
