@@ -141,7 +141,7 @@ struct UniformDistribution<std::complex<Real>>
 	result_type operator() (Engine& gen)
 	{
 		constexpr auto pi = Real{M_PI};
-		auto radius = dist_(gen);
+		auto radius = std::abs(dist_(gen));
 		auto angle = 2 * pi * dist_(gen);
 
 		return std::polar(radius, angle);

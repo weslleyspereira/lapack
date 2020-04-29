@@ -62,6 +62,12 @@ if(BUILD_COMPLEX)
 		CGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
 	)
 	add_test(NAME CGGQRCS_tests COMMAND CGGQRCS_tests)
+
+	add_executable(CLASRTR_tests main.cpp clasrtr.cpp)
+	target_link_libraries(
+        CLASRTR_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+	)
+    add_test(NAME CLASRTR_tests COMMAND CLASRTR_tests)
 endif()
 
 if(BUILD_COMPLEX16)
@@ -70,4 +76,10 @@ if(BUILD_COMPLEX16)
 		ZGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
 	)
 	add_test(NAME ZGGQRCS_tests COMMAND ZGGQRCS_tests)
+
+	add_executable(ZLASRTR_tests main.cpp zlasrtr.cpp)
+	target_link_libraries(
+        ZLASRTR_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+	)
+    add_test(NAME ZLASRTR_tests COMMAND ZLASRTR_tests)
 endif()
