@@ -72,7 +72,7 @@ set(DZLAUX
    dlasd0.f dlasd1.f dlasd2.f dlasd3.f dlasd4.f dlasd5.f dlasd6.f
    dlasd7.f dlasd8.f dlasda.f dlasdq.f dlasdt.f
    dlaset.f dlasq1.f dlasq2.f dlasq3.f dlasq4.f dlasq5.f dlasq6.f
-   dlasr.f  dlasrt.f dlasrti.f
+   dlasr.f  dlasrt.f dlasrti.f dlasrtr.f
    dlassq.f dlasv2.f dpttrf.f dstebz.f dstedc.f
    dsteqr.f dsterf.f dlaisnan.f disnan.f
    dlartgp.f dlartgs.f
