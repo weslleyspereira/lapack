@@ -120,14 +120,14 @@ extern "C"
 		lapack_int* m, lapack_int* n, lapack_int* p,
 		float* w, lapack_int* l,
 		std::complex<float>* A, lapack_int* lda,
-        std::complex<float>* B, lapack_int* ldb,
+		std::complex<float>* B, lapack_int* ldb,
 		float* theta,
 		std::complex<float>* U1, lapack_int* ldu1,
-        std::complex<float>* U2, lapack_int* ldu2,
+		std::complex<float>* U2, lapack_int* ldu2,
 		std::complex<float>* Qt, lapack_int* ldqt,
 		std::complex<float>* work, lapack_int* lwork,
-        float* rwork, lapack_int* lrwork,
-        lapack_int* iwork,
+		float* rwork, lapack_int* lrwork,
+		lapack_int* iwork,
 		lapack_int* info,
 		std::size_t jobu1_len, std::size_t jobu2_len, std::size_t jobqt_len
 	);
@@ -137,14 +137,14 @@ extern "C"
 		lapack_int* m, lapack_int* n, lapack_int* p,
 		double* w, lapack_int* l,
 		std::complex<double>* A, lapack_int* lda,
-        std::complex<double>* B, lapack_int* ldb,
+		std::complex<double>* B, lapack_int* ldb,
 		double* theta,
 		std::complex<double>* U1, lapack_int* ldu1,
-        std::complex<double>* U2, lapack_int* ldu2,
+		std::complex<double>* U2, lapack_int* ldu2,
 		std::complex<double>* Qt, lapack_int* ldqt,
 		std::complex<double>* work, lapack_int* lwork,
-        double* rwork, lapack_int* lrwork,
-        lapack_int* iwork,
+		double* rwork, lapack_int* lrwork,
+		lapack_int* iwork,
 		lapack_int* info,
 		std::size_t jobu1_len, std::size_t jobu2_len, std::size_t jobqt_len
 	);
@@ -166,6 +166,18 @@ extern "C"
 		lapack_int* indices,
 		lapack_int* info,
 		std::size_t order_len
+	);
+
+
+	void slasrtr_(
+		char* order,
+		lapack_int* m,
+		lapack_int* n,
+		float* A, lapack_int* lda,
+		lapack_int* ipvt,
+		float* work,
+		lapack_int* info,
+		lapack_int order_len
 	);
 }
 
@@ -429,14 +441,14 @@ inline integer_t ggqrcs(
 	char jobu1, char jobu2, char jobqt,
 	integer_t m, integer_t n, integer_t p, float* w, integer_t* l,
 	std::complex<float>* A, integer_t lda,
-    std::complex<float>* B, integer_t ldb,
+	std::complex<float>* B, integer_t ldb,
 	float* theta,
 	std::complex<float>* U1, integer_t ldu1,
-    std::complex<float>* U2, integer_t ldu2,
+	std::complex<float>* U2, integer_t ldu2,
 	std::complex<float>* Qt, integer_t ldqt,
 	std::complex<float>* work, integer_t lwork,
-    float* rwork, integer_t lrwork,
-    integer_t* iwork)
+	float* rwork, integer_t lrwork,
+	integer_t* iwork)
 {
 	assert( w );
 	assert( l );
@@ -486,14 +498,14 @@ inline integer_t ggqrcs(
 	char jobu1, char jobu2, char jobqt,
 	integer_t m, integer_t n, integer_t p, double* w, integer_t* l,
 	std::complex<double>* A, integer_t lda,
-    std::complex<double>* B, integer_t ldb,
+	std::complex<double>* B, integer_t ldb,
 	double* theta,
 	std::complex<double>* U1, integer_t ldu1,
-    std::complex<double>* U2, integer_t ldu2,
+	std::complex<double>* U2, integer_t ldu2,
 	std::complex<double>* Qt, integer_t ldqt,
 	std::complex<double>* work, integer_t lwork,
-    double* rwork, integer_t lrwork,
-    integer_t* iwork)
+	double* rwork, integer_t lrwork,
+	integer_t* iwork)
 {
 	assert( w );
 	assert( l );
@@ -762,6 +774,24 @@ inline double lanhe(
 
 
 
+inline void lapmr(
+	bool forward, integer_t m, integer_t n,
+	float* A, integer_t lda, integer_t* piv)
+{
+	integer_t iforward = forward ? 1 : 0;
+	slapmr_( &iforward, &m, &n, A, &lda, piv );
+}
+
+inline void lapmr(
+	bool forward, integer_t m, integer_t n,
+	double* A, integer_t lda, integer_t* piv)
+{
+	integer_t iforward = forward ? 1 : 0;
+	dlapmr_( &iforward, &m, &n, A, &lda, piv );
+}
+
+
+
 inline void lapmt(
 	bool forward, integer_t m, integer_t n,
 	float* A, integer_t lda, integer_t* piv)
@@ -840,6 +870,24 @@ inline integer_t lasrti(
 
 	return info;
 }
+
+
+
+inline integer_t lasrtr(
+	char order,
+	integer_t m,
+	integer_t n,
+	float* A, integer_t lda,
+	integer_t* ipvt,
+	float* work
+)
+{
+	integer_t info = -1;
+	slasrtr_(&order, &m, &n, A, &lda, ipvt, work, &info, 1);
+
+	return info;
+}
+
 
 
 inline integer_t pstrf(
