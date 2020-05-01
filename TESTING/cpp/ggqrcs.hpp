@@ -795,6 +795,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 			auto r = std::min(m+p, n);
 			auto k = std::min( {m, p, r, m + p - r} );
 
+			BOOST_TEST_CONTEXT("m=" << m) {
+			BOOST_TEST_CONTEXT("n=" << n) {
+			BOOST_TEST_CONTEXT("p=" << p) {
+			BOOST_TEST_CONTEXT("rank=" << r) {
+
 			BOOST_VERIFY(k > 0);
 
 			// The range on the right-hand side is tuned for single-precision
@@ -859,6 +864,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 			stats(4) = std::max(stats(4), iota(l-1));
 
 			rel_norms(it) = ublas::norm_frobenius(A) / ublas::norm_frobenius(B);
+		}
+		}
+		}
+		}
 		}
 
 		stats(1) /= num_iterations;
