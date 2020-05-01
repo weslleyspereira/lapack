@@ -848,7 +848,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 			auto iota = ublas::subrange(caller.theta, 0, l);
 
 			BOOST_REQUIRE_EQUAL(l, k);
-			BOOST_REQUIRE_EQUAL(l % 4, 0);
 
 			for(auto i = std::size_t{0}; i < l; ++i)
 			{
