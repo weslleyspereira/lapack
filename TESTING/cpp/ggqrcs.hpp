@@ -1157,6 +1157,7 @@ template<
 void xUNCSD2BY1_test_workspace_query_with_lrwork_impl(Number)
 {
 	// there is no lrwork parameter for real-valued 2-by-1 CSD
+	BOOST_CHECK_EQUAL( true, true ); // silence Boost warnings
 }
 
 template<
