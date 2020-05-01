@@ -279,10 +279,10 @@ void check_results(
 
 
 	// check that unitary matrices are indeed unitary
-	// The bound is based on Inequality (19.13), Equation (3.8) in
-	// Higham: "Accuracy and Stability of Numerical Algorithms".
-	BOOST_CHECK_LE( measure_isometry(U1), 4 * std::sqrt(m) * (m+p) * r * eps );
-	BOOST_CHECK_LE( measure_isometry(U2), 4 * std::sqrt(p) * (m+p) * r * eps );
+	// The bound is based on Inequality (19.13) in N. J. Higham: "Accuracy and
+	// Stability of Numerical Algorithms". 2002.
+	BOOST_CHECK_LE( measure_isometry(U1), 4 * m*m * eps );
+	BOOST_CHECK_LE( measure_isometry(U2), 4 * p*p * eps );
 
 
 	// check the "singular values"
