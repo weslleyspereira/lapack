@@ -82,50 +82,6 @@ extern "C" void xerbla_(
 }
 
 
-template<typename T, class Storage>
-ublas::matrix<T, Storage> assemble_R(
-	std::size_t r,
-	const ublas::matrix<T, Storage>& X, const ublas::matrix<T, Storage>& Y)
-{
-	BOOST_VERIFY( X.size2() == Y.size2() );
-
-	using Matrix = ublas::matrix<T, Storage>;
-	using MatrixRange = ublas::matrix_range<Matrix>;
-	using ConstMatrixRange = ublas::matrix_range<const Matrix>;
-	using BandedAdaptor = ublas::banded_adaptor<ConstMatrixRange>;
-
-	auto m = X.size1();
-	auto n = X.size2();
-	auto R = Matrix(r, n, 0);
-
-	if(r <= m)
-	{
-		MatrixRange R12 = ublas::subrange(R, 0, r, n-r, n);
-		ConstMatrixRange X1 = ublas::subrange(X, 0, r, 0, r);
-		BandedAdaptor X1U(X1, 0, r);
-
-		R12 = X1U;
-	}
-	else
-	{
-		MatrixRange R12 = ublas::subrange(R, 0, m, n-r, n);
-		MatrixRange R22 = ublas::subrange(R, m, r, n+m-r, n);
-
-		ConstMatrixRange X1 = ublas::subrange(X, 0, m, 0, r);
-		ConstMatrixRange Y1 = ublas::subrange(Y, 0, r-m, 0, r-m);
-
-		BandedAdaptor X1U(X1, 0, r);
-		BandedAdaptor Y1U(Y1, 0, r);
-
-		R12 = X1U;
-		R22 = Y1U;
-	}
-
-	return R;
-}
-
-
-
 template<
 	typename Number,
 	class Storage = ublas::column_major,
@@ -264,14 +220,12 @@ void check_results(
 	const ublas::vector<Real> theta,
 	const ublas::matrix<Number, Storage>& U1,
 	const ublas::matrix<Number, Storage>& U2,
-	const ublas::matrix<Number, Storage>& Qt,
-	const ublas::matrix<Number, Storage>& X,
-	const ublas::matrix<Number, Storage>& Y)
+	const ublas::matrix<Number, Storage>& X)
 {
 	BOOST_REQUIRE( A.size2() == B.size2() );
 	BOOST_REQUIRE( A.size1() == U1.size1() );
 	BOOST_REQUIRE( B.size1() == U2.size1() );
-	BOOST_REQUIRE( A.size2() == Qt.size1() );
+	BOOST_REQUIRE( A.size2() == X.size2() );
 
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 
@@ -296,21 +250,13 @@ void check_results(
 	BOOST_REQUIRE_GE(theta.size(), k);
 
 
-	// construct R
-	auto R = assemble_R(r, X, Y);
-
-	BOOST_REQUIRE_EQUAL(R.size1(), r);
-	BOOST_REQUIRE_EQUAL(R.size2(), n);
-
-
 	// check for NaN
 	bool(*isnan)(Number) = &nan_p;
 	BOOST_REQUIRE( std::none_of( A.data().begin(), A.data().end(), isnan) );
 	BOOST_REQUIRE( std::none_of( B.data().begin(), B.data().end(), isnan) );
-	BOOST_REQUIRE( std::none_of( R.data().begin(), R.data().end(), isnan) );
+	BOOST_REQUIRE( std::none_of( X.data().begin(), X.data().end(), isnan) );
 	BOOST_REQUIRE( std::none_of( U1.data().begin(), U1.data().end(), isnan) );
 	BOOST_REQUIRE( std::none_of( U2.data().begin(), U2.data().end(), isnan) );
-	BOOST_REQUIRE( std::none_of( Qt.data().begin(), Qt.data().end(), isnan) );
 	if( k > 0 )
 	{
 		bool(*isnan_r)(Real) = &nan_p;
@@ -322,10 +268,9 @@ void check_results(
 	bool(*is_inf)(Number) = &inf_p;
 	BOOST_REQUIRE( std::none_of( A.data().begin(), A.data().end(), is_inf) );
 	BOOST_REQUIRE( std::none_of( B.data().begin(), B.data().end(), is_inf) );
-	BOOST_REQUIRE( std::none_of( R.data().begin(), R.data().end(), is_inf) );
+	BOOST_REQUIRE( std::none_of( X.data().begin(), X.data().end(), is_inf) );
 	BOOST_REQUIRE( std::none_of( U1.data().begin(), U1.data().end(), is_inf) );
 	BOOST_REQUIRE( std::none_of( U2.data().begin(), U2.data().end(), is_inf) );
-	BOOST_REQUIRE( std::none_of( Qt.data().begin(), Qt.data().end(), is_inf) );
 	if( k > 0 )
 	{
 		bool(*is_inf)(Real) = &inf_p;
@@ -338,7 +283,6 @@ void check_results(
 	// Higham: "Accuracy and Stability of Numerical Algorithms".
 	BOOST_CHECK_LE( measure_isometry(U1), 4 * std::sqrt(m) * (m+p) * r * eps );
 	BOOST_CHECK_LE( measure_isometry(U2), 4 * std::sqrt(p) * (m+p) * r * eps );
-	BOOST_CHECK_LE( measure_isometry(Qt), 4 * std::sqrt(n) * n * r * eps );
 
 
 	// check the "singular values"
@@ -359,19 +303,19 @@ void check_results(
 	auto& D1 = ds.first;
 	auto& D2 = ds.second;
 
-	Matrix almost_A = assemble_matrix(U1, D1, R, Qt);
-	Matrix almost_B = assemble_matrix(U2, D2, R, Qt);
+	Matrix almost_A = assemble_matrix(U1, D1, X);
+	Matrix almost_B = assemble_matrix(U2, D2, X);
 
-	auto frob_A = ublas::norm_frobenius(A);
-	auto frob_B = ublas::norm_frobenius(B);
+	auto norm_A = ublas::norm_frobenius(A);
+	auto norm_B = ublas::norm_frobenius(B);
 
 	// The tolerance here is based on the backward error bounds for the QR
 	// factorization given in Theorem 19.4, Equation (3.8) in
 	// Higham: "Accuracy and Stability of Numerical Algorithms".
 	BOOST_CHECK_LE(
-		ublas::norm_frobenius(A - almost_A), 10 * (m+p) * n * frob_A * eps );
+		ublas::norm_frobenius(A - almost_A), 10 * (m+p) * n * norm_A * eps );
 	BOOST_CHECK_LE(
-		ublas::norm_frobenius(w*B - almost_B), 10*w * (m+p) * n * frob_B * eps );
+		ublas::norm_frobenius(w*B - almost_B), 10*w * (m+p) * n * norm_B * eps );
 }
 
 
@@ -390,45 +334,43 @@ struct xGGQRCS_Caller
 	Real w = not_a_number<Real>::value;
 	Integer rank = -1;
 	std::size_t m, n, p;
-	std::size_t ldx, ldy, ldu1, ldu2, ldqt;
-	Matrix X, Y;
-	Matrix U1, U2, Qt;
+	std::size_t lda, ldb, ldu1, ldu2;
+	Matrix A, B;
+	Matrix U1, U2;
 	Vector<Number> theta;
 	Vector<Number> work;
 	Vector<Integer> iwork;
 
 
 	xGGQRCS_Caller(std::size_t m_, std::size_t n_, std::size_t p_)
-		: xGGQRCS_Caller(m_, n_, p_, m_, p_, m_, p_, n_)
+		: xGGQRCS_Caller(m_, n_, p_, m_, p_, m_, p_)
 	{}
 
 
 	xGGQRCS_Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
-		std::size_t ldx_, std::size_t ldy_,
-		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldqt_
+		std::size_t lda_, std::size_t ldb_,
+		std::size_t ldu1_, std::size_t ldu2_
 	) :
 		m(m_),
 		n(n_),
 		p(p_),
-		ldx(ldx_), ldy(ldy_),
-		ldu1(ldu1_), ldu2(ldu2_), ldqt(ldqt_),
-		X(ldx, n, 0),
-		Y(ldy, n, 0),
+		lda(lda_), ldb(ldb_),
+		ldu1(ldu1_), ldu2(ldu2_),
+		A(lda, n, 0),
+		B(ldb, n, 0),
 		U1(ldu1, m, not_a_number<Number>::value),
 		U2(ldu2, p, not_a_number<Number>::value),
-		Qt(ldqt, n, not_a_number<Number>::value),
 		theta(n, not_a_number<Real>::value),
 		iwork(m + n + p, -1)
 	{
 		BOOST_VERIFY( m > 0 );
 		BOOST_VERIFY( n > 0 );
 		BOOST_VERIFY( p > 0 );
-		BOOST_VERIFY( ldx >= m );
-		BOOST_VERIFY( ldy >= p );
+		BOOST_VERIFY( lda >= m );
+		BOOST_VERIFY( ldb >= p );
 		BOOST_VERIFY( ldu1 >= m );
 		BOOST_VERIFY( ldu2 >= p );
-		BOOST_VERIFY( ldqt >= n );
 
 		auto nan = not_a_number<Number>::value;
 
@@ -438,9 +380,9 @@ struct xGGQRCS_Caller
 		auto rank = Integer{-1};
 		auto ret = lapack::ggqrcs(
 			'Y', 'Y', 'Y', m, n, p, &w, &rank,
-			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
-			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Qt(0, 0), ldqt,
+			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
 			&lwork_opt_f, -1, &iwork(0) );
 		BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -457,9 +399,9 @@ struct xGGQRCS_Caller
 	{
 		return lapack::ggqrcs(
 			'Y', 'Y', 'Y', m, n, p, &w, &rank,
-			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
-			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Qt(0, 0), ldqt,
+			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
 			&work(0), work.size(), &iwork(0)
 		);
 	}
@@ -476,9 +418,9 @@ struct xGGQRCS_Caller<std::complex<Real>>
 	Real w = not_a_number<Real>::value;
 	Integer rank = -1;
 	std::size_t m, n, p;
-	std::size_t ldx, ldy, ldu1, ldu2, ldqt;
-	Matrix X, Y;
-	Matrix U1, U2, Qt;
+	std::size_t lda, ldb, ldu1, ldu2;
+	Matrix A, B;
+	Matrix U1, U2;
 	Vector<Real> theta;
 	Vector<Number> work;
 	Vector<Real> rwork;
@@ -486,35 +428,33 @@ struct xGGQRCS_Caller<std::complex<Real>>
 
 
 	xGGQRCS_Caller(std::size_t m_, std::size_t n_, std::size_t p_)
-		: xGGQRCS_Caller(m_, n_, p_, m_, p_, m_, p_, n_)
+		: xGGQRCS_Caller(m_, n_, p_, m_, p_, m_, p_)
 	{}
 
 	xGGQRCS_Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
-		std::size_t ldx_, std::size_t ldy_,
-		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldqt_
+		std::size_t lda_, std::size_t ldb_,
+		std::size_t ldu1_, std::size_t ldu2_
 	) :
 		m(m_),
 		n(n_),
 		p(p_),
-		ldx(ldx_), ldy(ldy_),
-		ldu1(ldu1_), ldu2(ldu2_), ldqt(ldqt_),
-		X(ldx, n, 0),
-		Y(ldy, n, 0),
+		lda(lda_), ldb(ldb_),
+		ldu1(ldu1_), ldu2(ldu2_),
+		A(lda, n, 0),
+		B(ldb, n, 0),
 		U1(ldu1, m, not_a_number<Number>::value),
 		U2(ldu2, p, not_a_number<Number>::value),
-		Qt(ldqt, n, not_a_number<Number>::value),
 		theta(n, not_a_number<Real>::value),
 		iwork(m + n + p, -1)
 	{
 		BOOST_VERIFY( m > 0 );
 		BOOST_VERIFY( n > 0 );
 		BOOST_VERIFY( p > 0 );
-		BOOST_VERIFY( ldx >= m );
-		BOOST_VERIFY( ldy >= p );
+		BOOST_VERIFY( lda >= m );
+		BOOST_VERIFY( ldb >= p );
 		BOOST_VERIFY( ldu1 >= m );
 		BOOST_VERIFY( ldu2 >= p );
-		BOOST_VERIFY( ldqt >= n );
 
 		auto nan = not_a_number<Number>::value;
 		auto real_nan = not_a_number<Real>::value;
@@ -526,9 +466,9 @@ struct xGGQRCS_Caller<std::complex<Real>>
 		auto rank = Integer{-1};
 		auto ret = lapack::ggqrcs(
 			'Y', 'Y', 'Y', m, n, p, &w, &rank,
-			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
-			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Qt(0, 0), ldqt,
+			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
 			&lwork_opt_f, -1, &lrwork_opt_f, 1, &iwork(0) );
 		BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -547,15 +487,36 @@ struct xGGQRCS_Caller<std::complex<Real>>
 	{
 		return lapack::ggqrcs(
 			'Y', 'Y', 'Y', m, n, p, &w, &rank,
-			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
-			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Qt(0, 0), ldqt,
+			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
 			&work(0), work.size(),
 			&rwork(0), rwork.size(),
 			&iwork(0)
 		);
 	}
 };
+
+
+template<typename Number>
+ublas::matrix<Number, ublas::column_major> copy_X(
+	const xGGQRCS_Caller<Number>& caller)
+{
+	auto m = caller.m;
+	auto n = caller.n;
+	auto p = caller.p;
+	auto r = static_cast<std::size_t>(caller.rank);
+
+	BOOST_VERIFY(r <= std::min(m+p, n));
+	BOOST_VERIFY(1 + r*n <= caller.work.size());
+
+	auto X = ublas::matrix<Number, ublas::column_major>(r, n);
+
+	std::copy(&caller.work(1), &caller.work(1+r*n), X.data().begin());
+
+	return X;
+}
+
 
 
 template<typename Number, class Matrix>
@@ -571,40 +532,37 @@ void check_results(
 	};
 
 	auto m = caller.m;
-	auto n = caller.n;
 	auto p = caller.p;
-	auto X = f(caller.X, m, n);
-	auto Y = f(caller.Y, p, n);
+	auto X = copy_X(caller);
 	auto U1 = f(caller.U1, m, m);
 	auto U2 = f(caller.U2, p, p);
-	auto Qt = f(caller.Qt, n, n);
 
 	check_results(
 		ret,
 		A, B,
 		caller.w, caller.rank,
 		caller.theta,
-		U1, U2, Qt,
-		X, Y
+		U1, U2,
+		X
 	);
 }
 
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_2x2, Number, test_types)
 {
 	auto m = std::size_t{2};
 	auto n = std::size_t{2};
 	auto p = std::size_t{2};
 	auto caller = xGGQRCS_Caller<Number>(m, n, p);
-	auto A = caller.X;
-	auto B = caller.Y;
+	auto A = caller.A;
+	auto B = caller.B;
 
 	A(0,0) = 1;
 	B(1,1) = 1;
 
-	caller.X = A;
-	caller.Y = B;
+	caller.A = A;
+	caller.B = B;
 
 	auto ret = caller();
 	check_results(ret, A, B, caller);
@@ -612,6 +570,28 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple, Number, test_types)
 	BOOST_CHECK_EQUAL( caller.w, 1 );
 	BOOST_CHECK_EQUAL( caller.rank, 2 );
 }
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_1_2_3, Number, test_types)
+{
+	auto m = std::size_t{1};
+	auto n = std::size_t{2};
+	auto p = std::size_t{3};
+	auto caller = xGGQRCS_Caller<Number>(m, n, p, m, p, m, p);
+	auto A = caller.A;
+	auto B = caller.B;
+
+	A(0,0) = 1; A(0,1) = 1;
+	            B(0,1) = 100;
+
+	caller.A = A;
+	caller.B = B;
+
+	auto ret = caller();
+
+	check_results(ret, A, B, caller);
+	BOOST_CHECK_EQUAL( caller.rank, 2 );
+}
+
 
 
 template<
@@ -642,7 +622,7 @@ void xGGQRCS_test_zero_dimensions_impl(Number)
 			'N', 'N', 'N', m, n, p, &w, &rank,
 			&A[0], lda, &B[0], ldb,
 			&theta[0],
-			nullptr, 1, nullptr, 1, nullptr, 1,
+			nullptr, 1, nullptr, 1,
 			&work[0], lwork, &iwork[0]
 		);
 	};
@@ -682,7 +662,7 @@ void xGGQRCS_test_zero_dimensions_impl(Number)
 			'N', 'N', 'N', m, n, p, &w, &rank,
 			&A[0], lda, &B[0], ldb,
 			&theta[0],
-			nullptr, 1, nullptr, 1, nullptr, 1,
+			nullptr, 1, nullptr, 1,
 			&work[0], lwork, &rwork[0], lrwork, &iwork[0]
 		);
 	};
@@ -705,8 +685,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_zero_input, Number, test_types)
 	auto n = std::size_t{3};
 	auto p = std::size_t{2};
 	auto caller = xGGQRCS_Caller<Number>(m, n, p);
-	auto A = caller.X;
-	auto B = caller.Y;
+	auto A = caller.A;
+	auto B = caller.B;
 
 	auto ret = caller();
 	check_results(ret, A, B, caller);
@@ -725,16 +705,16 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_rectangular_input, Number, test_types
 			for(std::size_t p : {5, 11, 17})
 			{
 				auto caller = xGGQRCS_Caller<Number>(m, n, p);
-				auto A = caller.X;
-				auto B = caller.Y;
+				auto A = caller.A;
+				auto B = caller.B;
 
 				A(0,0) = 1;
 				A(1,0) = 1;
 				B(0,1) = 1;
 				B(1,1) = 1;
 
-				caller.X = A;
-				caller.Y = B;
+				caller.A = A;
+				caller.B = B;
 
 				auto ret = caller();
 				check_results(ret, A, B, caller);
@@ -818,23 +798,23 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 			std::sort(theta.begin(), theta.end());
 
 			auto dummy = Number{};
-			// Do not condition `R` too badly or we cannot directly compare the
+			// Do not condition `X` too badly or we cannot directly compare the
 			// computed generalized singular values with the generated singular
 			// values.
-			auto cond_R =
+			auto cond_X =
 				static_cast<Real>(1 << (std::numeric_limits<Real>::digits/2));
-			auto RQt = make_matrix_like(dummy, r, n, cond_R, &gen);
+			auto X = make_matrix_like(dummy, r, n, cond_X, &gen);
 			auto U1 = make_isometric_matrix_like(dummy, m, m, &gen);
 			auto U2 = make_isometric_matrix_like(dummy, p, p, &gen);
 			auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
 			auto D1 = ds.first;
 			auto D2 = ds.second;
-			auto A = assemble_matrix(U1, D1, RQt);
-			auto B = assemble_matrix(U2, D2, RQt);
+			auto A = assemble_matrix(U1, D1, X);
+			auto B = assemble_matrix(U2, D2, X);
 			auto caller = xGGQRCS_Caller<Number>(m, n, p);
 
-			caller.X = A;
-			caller.Y = B;
+			caller.A = A;
+			caller.B = B;
 
 			auto ret = caller();
 
@@ -921,31 +901,30 @@ void xGGQRCS_test_random_impl(
 		[&gen, &theta_dist](){ return theta_dist(gen); }
 	);
 
-	auto min_log_cond_R = Real{0};
-	auto max_log_cond_R = static_cast<Real>(std::numeric_limits<Real>::digits);
+	auto min_log_cond_X = Real{0};
+	auto max_log_cond_X = static_cast<Real>(std::numeric_limits<Real>::digits);
 	auto log_cond_dist =
-		std::uniform_real_distribution<Real>(min_log_cond_R, max_log_cond_R);
-	auto log_cond_R = log_cond_dist(gen);
-	auto cond_R = std::pow(Real{2}, log_cond_R);
-	auto R_Qt = make_matrix_like(dummy, r, n, cond_R, &gen);
+		std::uniform_real_distribution<Real>(min_log_cond_X, max_log_cond_X);
+	auto log_cond_X = log_cond_dist(gen);
+	auto cond_X = std::pow(Real{2}, log_cond_X);
+	auto X = make_matrix_like(dummy, r, n, cond_X, &gen);
 	auto U1 = make_isometric_matrix_like(dummy, m, m, &gen);
 	auto U2 = make_isometric_matrix_like(dummy, p, p, &gen);
 	auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
 	auto D1 = ds.first;
 	auto D2 = ds.second;
-	auto A = assemble_matrix(U1, D1, R_Qt);
-	auto B = assemble_matrix(U2, D2, R_Qt);
+	auto A = assemble_matrix(U1, D1, X);
+	auto B = assemble_matrix(U2, D2, X);
 
 	// initialize caller
 	auto ldx = m + 11;
 	auto ldy = p + 5;
 	auto ldu1 = m + 13;
 	auto ldu2 = p + 7;
-	auto ldqt = n + 17;
-	auto caller = xGGQRCS_Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2, ldqt);
+	auto caller = xGGQRCS_Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2);
 
-	ublas::subrange(caller.X, 0, m, 0, n) = A;
-	ublas::subrange(caller.Y, 0, p, 0, n) = B;
+	ublas::subrange(caller.A, 0, m, 0, n) = A;
+	ublas::subrange(caller.B, 0, p, 0, n) = B;
 
 	auto ret = caller();
 
@@ -1565,7 +1544,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 				A = assemble_matrix(U1, D1, R_Qt);
 				B = assemble_matrix(U2, D2, R_Qt);
 
-				qrcs.X = A; qrcs.Y = B;
+				qrcs.A = A; qrcs.B = B;
 				svd3.X = B; svd3.Y = A;
 
 				norm_A = ublas::norm_frobenius(A);
@@ -1575,14 +1554,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 			auto ret = qrcs();
 
 			{
-				auto R = assemble_R(qrcs.rank, qrcs.X, qrcs.Y);
+				auto X = copy_X(qrcs);
 				auto ds = assemble_diagonals_like(
 					dummy, m, p, qrcs.rank, qrcs.theta
 				);
 				auto& D1 = ds.first;
 				auto& D2 = ds.second;
-				auto almost_A = assemble_matrix(qrcs.U1, D1, R, qrcs.Qt);
-				auto almost_B = assemble_matrix(qrcs.U2, D2, R, qrcs.Qt);
+				auto almost_A = assemble_matrix(qrcs.U1, D1, X);
+				auto almost_B = assemble_matrix(qrcs.U2, D2, X);
 
 				delta_A_qrcs[i] =
 					ublas::norm_frobenius(A-almost_A) / (eps * norm_A);
