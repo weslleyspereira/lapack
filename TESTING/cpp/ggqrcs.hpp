@@ -216,7 +216,7 @@ void check_results(
 	Integer ret,
 	const ublas::matrix<Number, Storage>& A,
 	const ublas::matrix<Number, Storage>& B,
-	Real w, Integer rank,
+	Integer rank,
 	const ublas::vector<Real> theta,
 	const ublas::matrix<Number, Storage>& U1,
 	const ublas::matrix<Number, Storage>& U2,
@@ -236,10 +236,6 @@ void check_results(
 
 	// check scalars
 	BOOST_CHECK_EQUAL( ret, 0 );
-
-	BOOST_REQUIRE( !nan_p(w) );
-	BOOST_REQUIRE( std::isfinite(w) );
-	BOOST_REQUIRE_GT( w, 0 );
 
 	BOOST_CHECK_GE( rank, 0 );
 	BOOST_CHECK_LE( rank, std::min(m+p, n) );
@@ -315,7 +311,7 @@ void check_results(
 	BOOST_CHECK_LE(
 		ublas::norm_frobenius(A - almost_A), 10 * (m+p) * n * norm_A * eps );
 	BOOST_CHECK_LE(
-		ublas::norm_frobenius(w*B - almost_B), 10*w * (m+p) * n * norm_B * eps );
+		ublas::norm_frobenius(B - almost_B), 20 * (m+p) * n * norm_B * eps );
 }
 
 
@@ -331,7 +327,6 @@ struct xGGQRCS_Caller
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 	template<typename U> using Vector = ublas::vector<U>;
 
-	Real w = not_a_number<Real>::value;
 	Integer rank = -1;
 	std::size_t m, n, p;
 	std::size_t lda, ldb, ldu1, ldu2;
@@ -376,10 +371,9 @@ struct xGGQRCS_Caller
 
 		// query workspace size
 		auto lwork_opt_f = nan;
-		auto w = nan;
 		auto rank = Integer{-1};
 		auto ret = lapack::ggqrcs(
-			'Y', 'Y', 'Y', m, n, p, &w, &rank,
+			'Y', 'Y', 'Y', m, n, p, &rank,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
@@ -398,7 +392,7 @@ struct xGGQRCS_Caller
 	Integer operator() ()
 	{
 		return lapack::ggqrcs(
-			'Y', 'Y', 'Y', m, n, p, &w, &rank,
+			'Y', 'Y', 'Y', m, n, p, &rank,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
@@ -415,7 +409,6 @@ struct xGGQRCS_Caller<std::complex<Real>>
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 	template<typename U> using Vector = ublas::vector<U>;
 
-	Real w = not_a_number<Real>::value;
 	Integer rank = -1;
 	std::size_t m, n, p;
 	std::size_t lda, ldb, ldu1, ldu2;
@@ -462,10 +455,9 @@ struct xGGQRCS_Caller<std::complex<Real>>
 		// query workspace sizes
 		auto lwork_opt_f = nan;
 		auto lrwork_opt_f = real_nan;
-		auto w = real_nan;
 		auto rank = Integer{-1};
 		auto ret = lapack::ggqrcs(
-			'Y', 'Y', 'Y', m, n, p, &w, &rank,
+			'Y', 'Y', 'Y', m, n, p, &rank,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
@@ -486,7 +478,7 @@ struct xGGQRCS_Caller<std::complex<Real>>
 	Integer operator() ()
 	{
 		return lapack::ggqrcs(
-			'Y', 'Y', 'Y', m, n, p, &w, &rank,
+			'Y', 'Y', 'Y', m, n, p, &rank,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
@@ -540,7 +532,7 @@ void check_results(
 	check_results(
 		ret,
 		A, B,
-		caller.w, caller.rank,
+		caller.rank,
 		caller.theta,
 		U1, U2,
 		X
@@ -567,7 +559,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_2x2, Number, test_types)
 	auto ret = caller();
 	check_results(ret, A, B, caller);
 
-	BOOST_CHECK_EQUAL( caller.w, 1 );
 	BOOST_CHECK_EQUAL( caller.rank, 2 );
 }
 
@@ -607,7 +598,6 @@ void xGGQRCS_test_zero_dimensions_impl(Number)
 	constexpr auto nan = not_a_number<Number>::value;
 	constexpr auto real_nan = not_a_number<Real>::value;
 
-	auto w = real_nan;
 	auto rank = Integer{-1};
 	auto lda = 1;
 	auto A = std::vector<Number>(lda*1, nan);
@@ -619,7 +609,7 @@ void xGGQRCS_test_zero_dimensions_impl(Number)
 	auto iwork = std::vector<Integer>(1, -1);
 	auto f = [&] (std::size_t m, std::size_t n, std::size_t p) {
 		return lapack::ggqrcs(
-			'N', 'N', 'N', m, n, p, &w, &rank,
+			'N', 'N', 'N', m, n, p, &rank,
 			&A[0], lda, &B[0], ldb,
 			&theta[0],
 			nullptr, 1, nullptr, 1,
@@ -645,7 +635,6 @@ void xGGQRCS_test_zero_dimensions_impl(Number)
 	constexpr auto nan = not_a_number<Number>::value;
 	constexpr auto real_nan = not_a_number<Real>::value;
 
-	auto w = real_nan;
 	auto rank = Integer{-1};
 	auto lda = 1;
 	auto A = std::vector<Number>(lda*1, nan);
@@ -659,7 +648,7 @@ void xGGQRCS_test_zero_dimensions_impl(Number)
 	auto iwork = std::vector<Integer>(1, -1);
 	auto f = [&] (std::size_t m, std::size_t n, std::size_t p) {
 		return lapack::ggqrcs(
-			'N', 'N', 'N', m, n, p, &w, &rank,
+			'N', 'N', 'N', m, n, p, &rank,
 			&A[0], lda, &B[0], ldb,
 			&theta[0],
 			nullptr, 1, nullptr, 1,
@@ -691,7 +680,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_zero_input, Number, test_types)
 	auto ret = caller();
 	check_results(ret, A, B, caller);
 
-	BOOST_CHECK_EQUAL( caller.w, 1 );
 	BOOST_CHECK_EQUAL( caller.rank, 0 );
 }
 
@@ -718,8 +706,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_rectangular_input, Number, test_types
 
 				auto ret = caller();
 				check_results(ret, A, B, caller);
-
-				BOOST_CHECK_EQUAL( caller.w, 1 );
 			}
 		}
 	}
