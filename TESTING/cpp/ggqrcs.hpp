@@ -183,26 +183,21 @@ ublas::matrix<Number, ublas::column_major> assemble_matrix(
 {
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 
-	auto m = U.size1();
-	auto n = Qt.size1();
-	auto DR = Matrix(ublas::prod(D, R));
-	auto UDR = Matrix(m, n);
+	BOOST_VERIFY(R.size2() == Qt.size1());
+
+	auto m = R.size1();
+	auto n = Qt.size2();
+	auto k = R.size2();
+	auto RQt = Matrix(m, n);
 	auto alpha = Number{1};
 	auto beta = Number{0};
 	auto ret = lapack::gemm(
-		'N', 'N', m, n, m, alpha, &U(0,0), m, &DR(0,0), m, beta, &UDR(0,0), m
+		'N', 'N', m, n, k, alpha, &R(0,0), m, &Qt(0,0), k, beta, &RQt(0,0), m
 	);
 
 	BOOST_VERIFY( ret == 0 );
 
-	auto A = Matrix(m, n);
-	ret = lapack::gemm(
-		'N', 'N', m, n, n, alpha, &UDR(0,0), m, &Qt(0,0), n, beta, &A(0,0), m
-	);
-
-	BOOST_VERIFY( ret == 0 );
-
-	return A;
+	return assemble_matrix(U, D, RQt);
 }
 
 
