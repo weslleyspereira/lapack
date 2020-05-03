@@ -614,6 +614,77 @@ BOOST_AUTO_TEST_CASE(xGGQRCS_test_matrix_scaling)
 
 
 
+BOOST_TEST_DECORATOR(* boost::unit_test::expected_failures(1))
+BOOST_AUTO_TEST_CASE(xGGQRCS_test_conditional_backward_stability)
+{
+	using Number = float;
+	using Real = typename real_from<Number>::type;
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
+
+	constexpr auto eps = std::numeric_limits<Real>::epsilon();
+	auto tol = [] (const Matrix& a) {
+		return std::max(a.size1(), a.size2()) * ublas::norm_frobenius(a) * eps;
+	};
+
+	auto m = std::size_t{2};
+	auto n = std::size_t{2};
+	auto p = std::size_t{2};
+	auto r = std::size_t{2};
+	auto A = Matrix(m, n);
+	auto B = Matrix(p, n);
+
+	A(0,0) = +4.663013916e+02; A(0,1) = +4.046628418e+02;
+	A(1,0) = +3.062543457e+03; A(1,1) = +2.648934082e+03;
+	B(0,0) = -2.966550887e-01; B(0,1) = -2.563934922e-01;
+	B(1,0) = +7.012547851e-01; B(1,1) = +6.062732935e-01;
+
+	// compute GSVD of A, B and fail
+	{
+		auto caller = xGGQRCS_Caller<Number>(m, n, p);
+
+		caller.A = A;
+		caller.B = B;
+
+		auto ret = caller();
+		BOOST_REQUIRE_EQUAL( ret, 0 );
+
+		auto X = copy_X(caller);
+		auto ds = assemble_diagonals_like(Number{}, m, p, r, caller.theta);
+		auto& D1 = ds.first;
+		auto& D2 = ds.second;
+		auto almost_A = assemble_matrix(caller.U1, D1, X);
+		auto almost_B = assemble_matrix(caller.U2, D2, X);
+
+		BOOST_CHECK_LE(ublas::norm_frobenius(A - almost_A), tol(A));
+		// should fail
+		BOOST_CHECK_LE(ublas::norm_frobenius(B - almost_B), tol(B));
+	}
+
+	// try again with norm(A) = norm(B)
+	{
+		auto w = std::ldexp(Real{1}, 12);
+		auto caller = xGGQRCS_Caller<Number>(m, n, p);
+
+		caller.A = A;
+		caller.B = w * B;
+
+		auto ret = caller();
+		BOOST_REQUIRE_EQUAL( ret, 0 );
+
+		auto X = copy_X(caller);
+		auto ds = assemble_diagonals_like(Number{}, m, p, r, caller.theta);
+		auto& D1 = ds.first;
+		auto& D2 = ds.second;
+		auto almost_A = assemble_matrix(caller.U1, D1, X);
+		auto almost_B = assemble_matrix(caller.U2, D2, X);
+
+		BOOST_CHECK_LE(ublas::norm_frobenius(A - almost_A), tol(A));
+		BOOST_CHECK_LE(ublas::norm_frobenius(w*B - almost_B), tol(w*B));
+	}
+}
+
+
+
 template<
 	typename Number,
 	typename std::enable_if<
