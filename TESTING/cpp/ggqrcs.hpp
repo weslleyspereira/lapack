@@ -580,6 +580,40 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_1_2_3, Number, test_types)
 
 
 
+// this test does not pass with row sorting and no matrix scaling
+BOOST_AUTO_TEST_CASE(xGGQRCS_test_matrix_scaling)
+{
+	using Number = float;
+
+	auto m = std::size_t{1};
+	auto n = std::size_t{2};
+	auto p = std::size_t{10};
+	auto caller = xGGQRCS_Caller<Number>(m, n, p);
+	auto A = caller.A;
+	auto B = caller.B;
+
+	A(0,0) = -8.519847412e+02; A(0,1) = +6.469862671e+02;
+	B(0,0) = +5.485938125e+05; B(0,1) = -4.166526250e+05;
+	B(1,0) = +1.846850781e+05; B(1,1) = -1.402660781e+05;
+	B(2,0) = +5.322575625e+05; B(2,1) = -4.042448438e+05;
+	B(3,0) = -1.630551465e+04; B(3,1) = +1.238360352e+04;
+	B(4,0) = -1.286453438e+05; B(4,1) = +9.770555469e+04;
+	B(5,0) = -1.323287812e+05; B(5,1) = +1.005026797e+05;
+	B(6,0) = +5.681228750e+05; B(6,1) = -4.314841250e+05;
+	B(7,0) = -3.107875312e+05; B(7,1) = +2.360408594e+05;
+	B(8,0) = +1.456551719e+05; B(8,1) = -1.106233281e+05;
+	B(9,0) = +1.365355156e+05; B(9,1) = -1.036972344e+05;
+
+	caller.A = A;
+	caller.B = B;
+
+	auto ret = caller();
+
+	check_results(ret, A, B, caller);
+}
+
+
+
 template<
 	typename Number,
 	typename std::enable_if<
