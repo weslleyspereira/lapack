@@ -954,7 +954,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 			// computed generalized singular values with the generated singular
 			// values.
 			auto cond_X =
-				static_cast<Real>(1 << (std::numeric_limits<Real>::digits/2));
+				static_cast<Real>(1 << (std::numeric_limits<Real>::digits/4));
 			auto X = make_matrix_like(dummy, r, n, cond_X, &gen);
 			auto U1 = make_isometric_matrix_like(dummy, m, m, &gen);
 			auto U2 = make_isometric_matrix_like(dummy, p, p, &gen);
@@ -963,14 +963,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 			auto D2 = ds.second;
 			auto A = assemble_matrix(U1, D1, X);
 			auto B = assemble_matrix(U2, D2, X);
-			auto caller = xGGQRCS_Caller<Number>(m, n, p);
+			auto caller = xGGQRCS_Caller<Number>(m, n, p, false, false, false);
 
 			caller.A = A;
 			caller.B = B;
 
 			auto ret = caller();
-
-			check_results(ret, A, B, caller);
 
 			BOOST_VERIFY(ret == 0);
 			BOOST_REQUIRE_LE(caller.rank, r);
@@ -978,12 +976,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 			auto s = static_cast<std::size_t>(caller.rank);
 			auto l = std::min({m, p, s, m+p-s});
 			auto iota = ublas::subrange(caller.theta, 0, l);
+			auto eps = std::numeric_limits<Real>::epsilon();
 
 			BOOST_REQUIRE_EQUAL(l, k);
 
 			for(auto i = std::size_t{0}; i < l; ++i)
 			{
-				iota(i) = std::abs(iota(i) - theta(i)) / theta(i);
+				iota(i) = std::abs(iota(i) - theta(i)) / (theta(i) * eps);
 			}
 
 			std::sort(iota.begin(), iota.end());
