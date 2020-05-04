@@ -1639,6 +1639,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 	);
 
 	auto gen = std::mt19937(master_seed);
+	auto option_dist = std::uniform_int_distribution<unsigned>(0, 1);
 
 	gen.discard(1u << 17);
 
@@ -1649,8 +1650,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 
 	for(auto dim = std::size_t{10}; dim <= 50; dim += 10)
 	{
-		auto m = dim + 1;
-		auto n = 2 * dim;
+		auto m = dim;
+		auto n = dim;
 		auto p = dim;
 		auto r = std::min( m+p, n );
 
@@ -1692,7 +1693,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 				);
 
 				auto max_log_cond_R =
-					static_cast<Real>(std::numeric_limits<Real>::digits);
+					static_cast<Real>(std::numeric_limits<Real>::digits/4);
 				auto cond_R = std::pow(Real{2}, max_log_cond_R);
 				auto R_Qt = make_matrix_like(dummy, r, n, cond_R, &gen);
 				auto U1 = make_isometric_matrix_like(dummy, m, m, &gen);
@@ -1700,9 +1701,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 				auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
 				auto D1 = ds.first;
 				auto D2 = ds.second;
+				auto option = option_dist(gen);
+				auto d = std::numeric_limits<Real>::digits - 1;
+				auto w =
+					(option == 0) ? std::ldexp(Real{1}, +d/2) :
+					(option == 1) ? std::ldexp(Real{1}, -d/2) : real_nan
+				;
 
 				A = assemble_matrix(U1, D1, R_Qt);
-				B = assemble_matrix(U2, D2, R_Qt);
+				B = w * assemble_matrix(U2, D2, R_Qt);
 
 				qrcs.A = A; qrcs.B = B;
 				svd3.X = B; svd3.Y = A;
