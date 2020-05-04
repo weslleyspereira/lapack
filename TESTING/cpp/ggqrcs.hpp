@@ -222,8 +222,6 @@ void check_results(
 	BOOST_REQUIRE( B.size1() == U2.size1() );
 	BOOST_REQUIRE( A.size2() == X.size2() );
 
-	using Matrix = ublas::matrix<Number, ublas::column_major>;
-
 	auto m = A.size1();
 	auto n = A.size2();
 	auto p = B.size1();
@@ -293,20 +291,16 @@ void check_results(
 	auto ds = assemble_diagonals_like(Number{}, m, p, r, theta);
 	auto& D1 = ds.first;
 	auto& D2 = ds.second;
-
-	Matrix almost_A = assemble_matrix(U1, D1, X);
-	Matrix almost_B = assemble_matrix(U2, D2, X);
-
+	auto almost_A = assemble_matrix(U1, D1, X);
+	auto almost_B = assemble_matrix(U2, D2, X);
 	auto norm_A = ublas::norm_frobenius(A);
 	auto norm_B = ublas::norm_frobenius(B);
+	auto norm_AB = std::sqrt(norm_A*norm_A + norm_B*norm_B);
+	// xGGQRCS is only conditionally backward stable
+	auto tol = 8 * std::max(m + p, n) * norm_AB * eps;
 
-	// The tolerance here is based on the backward error bounds for the QR
-	// factorization given in Theorem 19.4, Equation (3.8) in
-	// Higham: "Accuracy and Stability of Numerical Algorithms".
-	BOOST_CHECK_LE(
-		ublas::norm_frobenius(A - almost_A), 10 * (m+p) * n * norm_A * eps );
-	BOOST_CHECK_LE(
-		ublas::norm_frobenius(B - almost_B), 20 * (m+p) * n * norm_B * eps );
+	BOOST_CHECK_LE(ublas::norm_frobenius(A - almost_A), tol);
+	BOOST_CHECK_LE(ublas::norm_frobenius(B - almost_B), tol);
 }
 
 
