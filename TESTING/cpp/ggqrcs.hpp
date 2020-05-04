@@ -312,6 +312,15 @@ void check_results(
 
 
 /**
+ * This function maps boolean values to LAPACK flags.
+ */
+char bool2lapackjob(bool p)
+{
+	return p ? 'Y' : 'N';
+}
+
+
+/**
  * This structure hides the differences between real and complex implementations
  * of xGGQRCS.
  */
@@ -322,6 +331,9 @@ struct xGGQRCS_Caller
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 	template<typename U> using Vector = ublas::vector<U>;
 
+	bool compute_u1_p = true;
+	bool compute_u2_p = true;
+	bool compute_x_p = true;
 	Integer rank = -1;
 	std::size_t m, n, p;
 	std::size_t lda, ldb, ldu1, ldu2;
@@ -333,15 +345,34 @@ struct xGGQRCS_Caller
 
 
 	xGGQRCS_Caller(std::size_t m_, std::size_t n_, std::size_t p_)
-		: xGGQRCS_Caller(m_, n_, p_, m_, p_, m_, p_)
+		: xGGQRCS_Caller(m_, n_, p_, m_, p_, m_, p_, true, true, true)
 	{}
-
 
 	xGGQRCS_Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
 		std::size_t lda_, std::size_t ldb_,
-		std::size_t ldu1_, std::size_t ldu2_
+		std::size_t ldu1_, std::size_t ldu2_)
+		: xGGQRCS_Caller(m_, n_, p_, lda_, ldb_, ldu1_, ldu2_, true, true, true)
+	{}
+
+	xGGQRCS_Caller(
+		std::size_t m_, std::size_t n_, std::size_t p_,
+		bool compute_u1_p_, bool compute_u2_p_, bool compute_x_p_)
+		: xGGQRCS_Caller(
+			m_, n_, p_, m_, p_, m_, p_,
+			compute_u1_p_, compute_u2_p_, compute_x_p_
+		)
+	{}
+
+	xGGQRCS_Caller(
+		std::size_t m_, std::size_t n_, std::size_t p_,
+		std::size_t lda_, std::size_t ldb_,
+		std::size_t ldu1_, std::size_t ldu2_,
+		bool compute_u1_p_, bool compute_u2_p_, bool compute_x_p_
 	) :
+		compute_u1_p(compute_u1_p_),
+		compute_u2_p(compute_u2_p_),
+		compute_x_p(compute_x_p_),
 		m(m_),
 		n(n_),
 		p(p_),
@@ -365,10 +396,13 @@ struct xGGQRCS_Caller
 		auto nan = not_a_number<Number>::value;
 
 		// query workspace size
+		auto jobu1 = bool2lapackjob(compute_u1_p);
+		auto jobu2 = bool2lapackjob(compute_u2_p);
+		auto jobx = bool2lapackjob(compute_x_p);
 		auto lwork_opt_f = nan;
 		auto rank = Integer{-1};
 		auto ret = lapack::ggqrcs(
-			'Y', 'Y', 'Y', m, n, p, &rank,
+			jobu1, jobu2, jobx, m, n, p, &rank,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
@@ -386,8 +420,11 @@ struct xGGQRCS_Caller
 
 	Integer operator() ()
 	{
+		auto jobu1 = bool2lapackjob(compute_u1_p);
+		auto jobu2 = bool2lapackjob(compute_u2_p);
+		auto jobx = bool2lapackjob(compute_x_p);
 		return lapack::ggqrcs(
-			'Y', 'Y', 'Y', m, n, p, &rank,
+			jobu1, jobu2, jobx, m, n, p, &rank,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
@@ -404,6 +441,9 @@ struct xGGQRCS_Caller<std::complex<Real>>
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 	template<typename U> using Vector = ublas::vector<U>;
 
+	bool compute_u1_p = true;
+	bool compute_u2_p = true;
+	bool compute_x_p = true;
 	Integer rank = -1;
 	std::size_t m, n, p;
 	std::size_t lda, ldb, ldu1, ldu2;
@@ -416,14 +456,34 @@ struct xGGQRCS_Caller<std::complex<Real>>
 
 
 	xGGQRCS_Caller(std::size_t m_, std::size_t n_, std::size_t p_)
-		: xGGQRCS_Caller(m_, n_, p_, m_, p_, m_, p_)
+		: xGGQRCS_Caller(m_, n_, p_, m_, p_, m_, p_, true, true, true)
 	{}
 
 	xGGQRCS_Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
 		std::size_t lda_, std::size_t ldb_,
-		std::size_t ldu1_, std::size_t ldu2_
+		std::size_t ldu1_, std::size_t ldu2_)
+		: xGGQRCS_Caller(m_, n_, p_, lda_, ldb_, ldu1_, ldu2_, true, true, true)
+	{}
+
+	xGGQRCS_Caller(
+		std::size_t m_, std::size_t n_, std::size_t p_,
+		bool compute_u1_p_, bool compute_u2_p_, bool compute_x_p_)
+		: xGGQRCS_Caller(
+			m_, n_, p_, m_, p_, m_, p_,
+			compute_u1_p_, compute_u2_p_, compute_x_p_
+		)
+	{}
+
+	xGGQRCS_Caller(
+		std::size_t m_, std::size_t n_, std::size_t p_,
+		std::size_t lda_, std::size_t ldb_,
+		std::size_t ldu1_, std::size_t ldu2_,
+		bool compute_u1_p_, bool compute_u2_p_, bool compute_x_p_
 	) :
+		compute_u1_p(compute_u1_p_),
+		compute_u2_p(compute_u2_p_),
+		compute_x_p(compute_x_p_),
 		m(m_),
 		n(n_),
 		p(p_),
@@ -448,11 +508,14 @@ struct xGGQRCS_Caller<std::complex<Real>>
 		auto real_nan = not_a_number<Real>::value;
 
 		// query workspace sizes
+		auto jobu1 = bool2lapackjob(compute_u1_p);
+		auto jobu2 = bool2lapackjob(compute_u2_p);
+		auto jobx = bool2lapackjob(compute_x_p);
 		auto lwork_opt_f = nan;
 		auto lrwork_opt_f = real_nan;
 		auto rank = Integer{-1};
 		auto ret = lapack::ggqrcs(
-			'Y', 'Y', 'Y', m, n, p, &rank,
+			jobu1, jobu2, jobx, m, n, p, &rank,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
@@ -472,8 +535,11 @@ struct xGGQRCS_Caller<std::complex<Real>>
 
 	Integer operator() ()
 	{
+		auto jobu1 = bool2lapackjob(compute_u1_p);
+		auto jobu2 = bool2lapackjob(compute_u2_p);
+		auto jobx = bool2lapackjob(compute_x_p);
 		return lapack::ggqrcs(
-			'Y', 'Y', 'Y', m, n, p, &rank,
+			jobu1, jobu2, jobx, m, n, p, &rank,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&theta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
