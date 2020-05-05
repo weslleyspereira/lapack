@@ -1191,21 +1191,8 @@ void xGGQRCS_test_random_impl(
 
 	gen.discard(1u << 17);
 
-	auto pi2 = Real{M_PI}/2;
-	auto q = std::size_t{1} << ((std::numeric_limits<Real>::digits-1)/2);
 	auto option = option_dist(gen);
-	auto theta_min =
-		option == 0 ? Real{0} :
-		option == 1 ? pi2 / q * (q-1) :
-		option == 2 ? pi2 / q * 0 : real_nan
-	;
-	auto theta_max =
-		option == 0 ? Real{0} :
-		option == 1 ? pi2 / q * (q-0) :
-		option == 2 ? pi2 / q * 1 : real_nan
-	;
-	auto theta_dist =
-		std::uniform_real_distribution<Real>(theta_min, theta_max);
+	auto theta_dist = ThetaDistribution<Real>(option);
 	auto k = std::min( {m, p, r, m + p - r} );
 	auto theta = ublas::vector<Real>(k, real_nan);
 
