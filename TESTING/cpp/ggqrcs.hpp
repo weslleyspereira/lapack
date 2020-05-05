@@ -951,6 +951,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_rectangular_input, Number, test_types
  * * a random matrix `R Q^*`, and
  * * generalized singular values such that `s_ii >> c_ii`.
  */
+BOOST_TEST_DECORATOR(* boost::unit_test::disabled())
 BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 {
 	// Numbers of the form 4n+1 are used here so that the the median as well as
@@ -1080,6 +1081,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 
 
 
+BOOST_TEST_DECORATOR(* boost::unit_test::disabled())
 BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_row_scaling, Number, test_types)
 {
 	using Real = typename real_from<Number>::type;
