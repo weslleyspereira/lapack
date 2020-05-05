@@ -1080,6 +1080,94 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 
 
 
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_row_scaling, Number, test_types)
+{
+	using Real = typename real_from<Number>::type;
+
+	auto gen = std::mt19937();
+
+	gen.discard(1u << 17);
+
+	for(auto d = std::size_t{5}; d <= 45; d += 10)
+	{
+		auto num_iterations = std::size_t{101};
+		auto real_nan = not_a_number<Real>::value;
+		// five-point summary backward error A
+		auto stats_be_a = ublas::vector<Real>(num_iterations, real_nan);
+		// five-point summary backward error B
+		auto stats_be_b = ublas::vector<Real>(num_iterations, real_nan);
+
+		for(auto it = std::size_t{0}; it < num_iterations; ++it)
+		{
+			auto m = d;
+			auto n = d;
+			auto p = 2*d;
+
+			BOOST_TEST_CONTEXT("m=" << m) {
+			BOOST_TEST_CONTEXT("n=" << n) {
+			BOOST_TEST_CONTEXT("p=" << p) {
+			BOOST_TEST_CONTEXT("iteration=" << it) {
+
+			auto dummy = Number{};
+			auto digits = std::numeric_limits<Real>::digits;
+			auto cond = static_cast<Real>(1 << (digits/4));
+			auto A = make_matrix_like(dummy, m, n, cond, &gen);
+			auto B = make_matrix_like(dummy, p, n, cond, &gen);
+
+			// row scaling
+			auto row_norms_a = ublas::vector<Real>(m, Real{0});
+			auto row_norms_b = ublas::vector<Real>(p, Real{0});
+
+			for(auto j = std::size_t{0}; j < n; ++j)
+			{
+				for(auto i = std::size_t{0}; i < m; ++i)
+					row_norms_a(i) = std::max(row_norms_a(i), std::abs(A(i,j)));
+				for(auto i = std::size_t{0}; i < p; ++i)
+					row_norms_b(i) = std::max(row_norms_b(i), std::abs(B(i,j)));
+			}
+
+			auto kappa = std::ldexp(Real{1}, digits/2);
+			for(auto j = std::size_t{0}; j < n; ++j)
+			{
+				//for(auto i = std::size_t{0}; i < m; ++i)
+				//	A(i,j) *= kappa * i / (m-1) / row_norms_a(i);
+				for(auto i = std::size_t{0}; i < p; ++i)
+					B(i,j) *= kappa * i / (p-1) / row_norms_b(i);
+			}
+
+			auto caller = xGGQRCS_Caller<Number>(m, n, p);
+
+			caller.A = A;
+			caller.B = B;
+
+			auto ret = caller();
+			auto be_errors = check_results(ret, A, B, caller);
+
+			stats_be_a(it) = be_errors.first;
+			stats_be_b(it) = be_errors.second;
+		}
+		}
+		}
+		}
+		}
+
+		auto k = num_iterations - 1;
+
+		std::sort(stats_be_a.begin(), stats_be_a.end());
+		std::sort(stats_be_b.begin(), stats_be_b.end());
+		std::printf(
+			"%2zu  %8.2e %8.2e %8.2e %8.2e %8.2e  %8.2e %8.2e %8.2e %8.2e %8.2e\n",
+			d,
+			stats_be_a(k*0), stats_be_a(k/4), stats_be_a(k/2), stats_be_a(k/4*3), stats_be_a(k),
+			stats_be_b(k*0), stats_be_b(k/4), stats_be_b(k/2), stats_be_b(k/4*3), stats_be_b(k)
+		);
+	}
+}
+
+
+
+
+
 template<typename Number>
 void xGGQRCS_test_random_impl(
 	Number dummy,
