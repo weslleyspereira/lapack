@@ -207,7 +207,7 @@ template<
 	class Storage,
 	typename Real = typename real_from<Number>::type
 >
-void check_results(
+std::pair<Real, Real> check_results(
 	Integer ret,
 	const ublas::matrix<Number, Storage>& A,
 	const ublas::matrix<Number, Storage>& B,
@@ -298,9 +298,13 @@ void check_results(
 	auto norm_AB = std::sqrt(norm_A*norm_A + norm_B*norm_B);
 	// xGGQRCS is only conditionally backward stable
 	auto tol = 8 * std::max(m + p, n) * norm_AB * eps;
+	auto backward_error_A = ublas::norm_frobenius(A - almost_A);
+	auto backward_error_B = ublas::norm_frobenius(B - almost_B);
 
-	BOOST_CHECK_LE(ublas::norm_frobenius(A - almost_A), tol);
-	BOOST_CHECK_LE(ublas::norm_frobenius(B - almost_B), tol);
+	BOOST_CHECK_LE(backward_error_A, tol);
+	BOOST_CHECK_LE(backward_error_B, tol);
+
+	return std::make_pair(backward_error_A, backward_error_B);
 }
 
 
@@ -566,8 +570,12 @@ ublas::matrix<Number, ublas::column_major> copy_X(
 
 
 
-template<typename Number, class Matrix>
-void check_results(
+template<
+	typename Number,
+	class Matrix,
+	typename Real = typename real_from<Number>::type
+>
+std::pair<Real, Real> check_results(
 	Integer ret,
 	const Matrix& A, const Matrix& B,
 	const xGGQRCS_Caller<Number> caller)
@@ -584,7 +592,7 @@ void check_results(
 	auto U1 = f(caller.U1, m, m);
 	auto U2 = f(caller.U2, p, p);
 
-	check_results(
+	return check_results(
 		ret,
 		A, B,
 		caller.rank,
@@ -593,6 +601,56 @@ void check_results(
 		X
 	);
 }
+
+
+
+/**
+ * This random number distribution returns the radians representation of
+ * generalized singular values such that `sigma = tan(theta)`.
+ */
+template<typename Real>
+struct ThetaDistribution
+{
+	static_assert(std::is_fundamental<Real>::value, "");
+	static_assert(!std::is_integral<Real>::value, "");
+
+	constexpr static Real PI_2 = Real{M_PI}/2;
+	constexpr static std::size_t Q =
+		std::size_t{1} << ((std::numeric_limits<Real>::digits-1)/2);
+	constexpr static Real nan = std::numeric_limits<Real>::quiet_NaN();
+
+	Real min_, max_;
+	std::uniform_real_distribution<Real> dist_;
+
+
+	explicit ThetaDistribution(unsigned option) :
+		min_(
+			(option == 0) ? Real{0} :
+			(option == 1) ? PI_2 / Q * 0 :
+			(option == 2) ? PI_2 / Q * (Q-1) : nan
+		),
+		max_(
+			(option == 0) ? PI_2 :
+			(option == 1) ? PI_2 / Q * 1 :
+			(option == 2) ? PI_2 / Q * (Q-0) : nan
+		),
+		dist_(std::uniform_real_distribution<Real>(min_, max_))
+	{
+		BOOST_VERIFY(option < 3);
+		BOOST_VERIFY(std::isfinite(min_));
+		BOOST_VERIFY(std::isfinite(max_));
+		assert(min_ < max_);
+	}
+
+
+
+
+	template<class Engine>
+	Real operator() (Engine& gen)
+	{
+		return dist_(gen);
+	}
+};
 
 
 
@@ -906,112 +964,117 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 
 	gen.discard(1u << 17);
 
-	for(auto d = std::size_t{10}; d <= 50; d += 10)
+	for(auto option = 1u; option <= 2u; ++option)
 	{
-		auto real_nan = not_a_number<Real>::value;
-		auto stats = ublas::vector<Real>(5, 0);
-		auto num_iterations = 100 * d / 4 * 4 + 1;
-		auto rel_norms = ublas::vector<Real>(num_iterations, real_nan);
-
-		for(auto it = std::size_t{0}; it < num_iterations; ++it)
+		for(auto d = std::size_t{5}; d <= 65; d += 20)
 		{
-			auto m = d;
-			auto n = d/4*4 + 1;
-			auto p = d;
-			auto r = std::min(m+p, n);
-			auto k = std::min( {m, p, r, m + p - r} );
+			auto real_nan = not_a_number<Real>::value;
+			auto stats_fe = ublas::vector<Real>(5, 0);
+			auto cond_max = Real{0};
+			auto num_iterations = std::size_t{101};
+			auto rel_norms = ublas::vector<Real>(num_iterations, real_nan);
 
-			BOOST_TEST_CONTEXT("m=" << m) {
-			BOOST_TEST_CONTEXT("n=" << n) {
-			BOOST_TEST_CONTEXT("p=" << p) {
-			BOOST_TEST_CONTEXT("rank=" << r) {
-
-			BOOST_VERIFY(k > 0);
-
-			// The range on the right-hand side is tuned for single-precision
-			// floats.
-			// Potential precision-independent solution:
-			//   d := std::numeric_limits<Real>::digits
-			//   interval [M_PI/(d/2)*(d/4-1), M_PI/(d/2))
-			auto theta_dist =
-				std::uniform_real_distribution<Real>(M_PI/1024*511, M_PI/2);
-			auto theta = ublas::vector<Real>(k, real_nan);
-
-			std::generate(
-				theta.begin(), theta.end(),
-				[&gen, &theta_dist](){ return theta_dist(gen); }
-			);
-			std::sort(theta.begin(), theta.end());
-
-			auto dummy = Number{};
-			// Do not condition `X` too badly or we cannot directly compare the
-			// computed generalized singular values with the generated singular
-			// values.
-			auto cond_X =
-				static_cast<Real>(1 << (std::numeric_limits<Real>::digits/4));
-			auto X = make_matrix_like(dummy, r, n, cond_X, &gen);
-			auto U1 = make_isometric_matrix_like(dummy, m, m, &gen);
-			auto U2 = make_isometric_matrix_like(dummy, p, p, &gen);
-			auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
-			auto D1 = ds.first;
-			auto D2 = ds.second;
-			auto A = assemble_matrix(U1, D1, X);
-			auto B = assemble_matrix(U2, D2, X);
-			auto caller = xGGQRCS_Caller<Number>(m, n, p, false, false, false);
-
-			caller.A = A;
-			caller.B = B;
-
-			auto ret = caller();
-
-			BOOST_VERIFY(ret == 0);
-			BOOST_REQUIRE_LE(caller.rank, r);
-
-			auto s = static_cast<std::size_t>(caller.rank);
-			auto l = std::min({m, p, s, m+p-s});
-			auto iota = ublas::subrange(caller.theta, 0, l);
-			auto eps = std::numeric_limits<Real>::epsilon();
-
-			BOOST_REQUIRE_EQUAL(l, k);
-
-			for(auto i = std::size_t{0}; i < l; ++i)
+			for(auto it = std::size_t{0}; it < num_iterations; ++it)
 			{
-				iota(i) = std::abs(iota(i) - theta(i)) / (theta(i) * eps);
+				auto m = d;
+				auto n = d;
+				auto p = d;
+				auto r = std::min(m+p, n) - 1;
+				auto k = std::min( {m, p, r, m + p - r} );
+
+				BOOST_TEST_CONTEXT("m=" << m) {
+				BOOST_TEST_CONTEXT("n=" << n) {
+				BOOST_TEST_CONTEXT("p=" << p) {
+				BOOST_TEST_CONTEXT("rank=" << r) {
+
+				BOOST_VERIFY(k > 0);
+
+				auto theta_dist = ThetaDistribution<Real>(option);
+				auto theta = ublas::vector<Real>(k, real_nan);
+
+				std::generate(
+					theta.begin(), theta.end(),
+					[&gen, &theta_dist](){ return theta_dist(gen); }
+				);
+				std::sort(theta.begin(), theta.end());
+
+				auto dummy = Number{};
+				// Do not condition `X` too badly or we cannot directly compare
+				// the computed generalized singular values with the generated
+				// singular values.
+				auto digits = std::numeric_limits<Real>::digits;
+				auto cond_X = static_cast<Real>(1 << (digits/4));
+				auto X = make_matrix_like(dummy, r, n, cond_X, &gen);
+				auto U1 = make_isometric_matrix_like(dummy, m, m, &gen);
+				auto U2 = make_isometric_matrix_like(dummy, p, p, &gen);
+				auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
+				auto D1 = ds.first;
+				auto D2 = ds.second;
+				auto A = assemble_matrix(U1, D1, X);
+				auto B = assemble_matrix(U2, D2, X);
+				auto caller = xGGQRCS_Caller<Number>(m, n, p);
+
+				caller.A = A;
+				caller.B = B;
+
+				auto ret = caller();
+				auto be_errors = check_results(ret, A, B, caller);
+				auto min_be_error = std::min(be_errors.first, be_errors.second);
+
+				BOOST_REQUIRE_LE(caller.rank, r);
+
+				auto s = static_cast<std::size_t>(caller.rank);
+				auto l = std::min({m, p, s, m+p-s});
+				auto iota = ublas::subrange(caller.theta, 0, l);
+				auto eps = std::numeric_limits<Real>::epsilon();
+				// relative forward error
+				auto delta_fe = ublas::vector<Real>(l, real_nan);
+
+				BOOST_REQUIRE_EQUAL(l, k);
+
+				for(auto i = std::size_t{0}; i < l; ++i)
+				{
+					auto delta = std::abs(iota(i) - theta(i));
+
+					delta_fe(i) = delta / (eps * theta(i));
+					cond_max = std::max(cond_max, delta / min_be_error);
+				}
+
+				std::sort(delta_fe.begin(), delta_fe.end());
+
+				stats_fe(0) = std::min(stats_fe(0), delta_fe(0));
+				stats_fe(1) += delta_fe(1*l/4);
+				stats_fe(2) += delta_fe(2*l/4);
+				stats_fe(3) += delta_fe(3*l/4);
+				stats_fe(4) = std::max(stats_fe(4), delta_fe(l-1));
+
+				rel_norms(it) = ublas::norm_frobenius(A) / ublas::norm_frobenius(B);
+			}
+			}
+			}
+			}
 			}
 
-			std::sort(iota.begin(), iota.end());
+			stats_fe(1) /= num_iterations;
+			stats_fe(2) /= num_iterations;
+			stats_fe(3) /= num_iterations;
 
-			stats(0) = std::min(stats(0), iota(0));
-			stats(1) += iota(1*l/4);
-			stats(2) += iota(2*l/4);
-			stats(3) += iota(3*l/4);
-			stats(4) = std::max(stats(4), iota(l-1));
+			std::sort(rel_norms.begin(), rel_norms.end());
 
-			rel_norms(it) = ublas::norm_frobenius(A) / ublas::norm_frobenius(B);
+			auto rel_norm_0 =   rel_norms(num_iterations/4*0);
+			auto rel_norm_25 =  rel_norms(num_iterations/4*1);
+			auto rel_norm_50 =  rel_norms(num_iterations/4*2);
+			auto rel_norm_75 =  rel_norms(num_iterations/4*3);
+			auto rel_norm_100 = rel_norms(num_iterations/4*4);
+
+			std::printf(
+				"%2zu  %8.2e  %8.2e %8.2e %8.2e %8.2e %8.2e  %8.2e %8.2e %8.2e %8.2e %8.2e\n",
+				d,
+				cond_max,
+				rel_norm_0, rel_norm_25, rel_norm_50, rel_norm_75, rel_norm_100,
+				stats_fe(0), stats_fe(1), stats_fe(2), stats_fe(3), stats_fe(4)
+			);
 		}
-		}
-		}
-		}
-		}
-
-		stats(1) /= num_iterations;
-		stats(2) /= num_iterations;
-		stats(3) /= num_iterations;
-
-		std::sort(rel_norms.begin(), rel_norms.end());
-
-		auto rel_norm_0 =   rel_norms(num_iterations/4*0);
-		auto rel_norm_25 =  rel_norms(num_iterations/4*1);
-		auto rel_norm_50 =  rel_norms(num_iterations/4*2);
-		auto rel_norm_75 =  rel_norms(num_iterations/4*3);
-		auto rel_norm_100 = rel_norms(num_iterations/4*4);
-
-		std::printf(
-			"%2zu  %8.2e %8.2e %8.2e %8.2e %8.2e  %8.2e %8.2e %8.2e %8.2e %8.2e\n",
-			d,
-			rel_norm_0, rel_norm_25, rel_norm_50, rel_norm_75, rel_norm_100,
-			stats(0), stats(1), stats(2), stats(3), stats(4)
-		);
 	}
 }
 
