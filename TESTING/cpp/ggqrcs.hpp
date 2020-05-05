@@ -1644,12 +1644,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 	gen.discard(1u << 17);
 
 	std::printf(
-		"%3s %3s %3s %4s  %8s %8s\n",
-		"m", "n", "p", "rank", "delta_A", "delta_B"
+		"%3s %3s %3s %4s  %17s  %17s\n",
+		"m", "n", "p", "rank", "median-rel-error", "max-rel-error"
 	);
 
 	for(auto dim = std::size_t{10}; dim <= 50; dim += 10)
 	{
+		// make odd for easy median computation
+		auto num_iterations = std::size_t{1001};
 		auto m = dim;
 		auto n = dim;
 		auto p = dim;
@@ -1668,18 +1670,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 		auto B = Matrix(1, 1, nan);
 		auto norm_A = real_nan;
 		auto norm_B = real_nan;
-		// make odd for easy median computation
-		auto num_iterations = std::size_t{101};
 		auto delta_A_qrcs = ublas::vector<Real>(num_iterations, real_nan);
 		auto delta_B_qrcs = ublas::vector<Real>(num_iterations, real_nan);
+		auto delta_cs_qrcs = ublas::vector<Real>(num_iterations, Real{0});
 		auto delta_A_svd3 = ublas::vector<Real>(num_iterations, real_nan);
 		auto delta_B_svd3 = ublas::vector<Real>(num_iterations, real_nan);
+		auto delta_cs_svd3 = ublas::vector<Real>(num_iterations, Real{0});
 
-		for(auto i = std::size_t{0}; i < num_iterations; ++i)
+		for(auto it = std::size_t{0}; it < num_iterations; ++it)
 		{
-			auto qrcs = xGGQRCS_Caller<Number>(m, n, p);
-			auto svd3 = xGGSVD3_Caller<Number>(p, n, m);
-
 			// set up matrices
 			{
 				auto k = std::min( {m, p, r, m + p - r} );
@@ -1711,16 +1710,19 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 				A = assemble_matrix(U1, D1, R_Qt);
 				B = w * assemble_matrix(U2, D2, R_Qt);
 
-				qrcs.A = A; qrcs.B = B;
-				svd3.X = B; svd3.Y = A;
-
 				norm_A = ublas::norm_frobenius(A);
 				norm_B = ublas::norm_frobenius(B);
 			}
 
-			auto ret = qrcs();
-
 			{
+				auto qrcs = xGGQRCS_Caller<Number>(m, n, p);
+
+				qrcs.A = A; qrcs.B = B;
+
+				auto ret = qrcs();
+
+				BOOST_VERIFY(ret == 0);
+
 				auto X = copy_X(qrcs);
 				auto ds = assemble_diagonals_like(
 					dummy, m, p, qrcs.rank, qrcs.theta
@@ -1730,17 +1732,21 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 				auto almost_A = assemble_matrix(qrcs.U1, D1, X);
 				auto almost_B = assemble_matrix(qrcs.U2, D2, X);
 
-				delta_A_qrcs[i] =
+				delta_A_qrcs[it] =
 					ublas::norm_frobenius(A-almost_A) / (eps * norm_A);
-				delta_B_qrcs[i] =
+				delta_B_qrcs[it] =
 					ublas::norm_frobenius(B-almost_B) / (eps * norm_B);
 			}
 
-			ret = svd3();
-
-			BOOST_VERIFY(  ret == 0 );
-
 			{
+				auto svd3 = xGGSVD3_Caller<Number>(p, n, m);
+
+				svd3.X = B; svd3.Y = A;
+
+				auto ret = svd3();
+
+				BOOST_VERIFY(  ret == 0 );
+
 				auto R = assemble_R(svd3.k, svd3.l, svd3.X, svd3.Y);
 				auto ds = assemble_diagonals_like(
 					Number{}, p, m, svd3.k, svd3.l, svd3.alpha, svd3.beta
@@ -1751,19 +1757,19 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 				auto almost_A = assemble_matrix(svd3.U2, D2, R, Qt);
 				auto almost_B = assemble_matrix(svd3.U1, D1, R, Qt);
 
-				delta_A_svd3[i] =
+				delta_A_svd3[it] =
 					ublas::norm_frobenius(A-almost_A) / (eps * norm_A);
-				delta_B_svd3[i] =
+				delta_B_svd3[it] =
 					ublas::norm_frobenius(B-almost_B) / (eps * norm_B);
 			}
 		}
-
-		auto k = num_iterations-1;
 
 		std::sort(delta_A_qrcs.begin(), delta_A_qrcs.end());
 		std::sort(delta_B_qrcs.begin(), delta_B_qrcs.end());
 		std::sort(delta_A_svd3.begin(), delta_A_svd3.end());
 		std::sort(delta_B_svd3.begin(), delta_B_svd3.end());
+
+		auto k = num_iterations - 1;
 
 		std::printf(
 			"%3zu %3zu %3zu %4zu  %8.2e %8.2e  %8.2e %8.2e\n",
