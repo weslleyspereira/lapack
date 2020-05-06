@@ -92,7 +92,7 @@ extern "C"
 	void sggqrcs_(
 		char* jobu1, char* jobu2, char* jobx,
 		lapack_int* m, lapack_int* n, lapack_int* p,
-		lapack_int* l,
+		lapack_int* l, float* w,
 		float* A, lapack_int* lda, float* B, lapack_int* ldb,
 		float* theta,
 		float* U1, lapack_int* ldu1, float* U2, lapack_int* ldu2,
@@ -447,20 +447,21 @@ inline integer_t gesvd(
 
 inline integer_t ggqrcs(
 	char jobu1, char jobu2, char jobx,
-	integer_t m, integer_t n, integer_t p, integer_t* l,
+	integer_t m, integer_t n, integer_t p, integer_t* p_l, float* p_w,
 	float* A, integer_t lda, float* B, integer_t ldb,
 	float* theta,
 	float* U1, integer_t ldu1, float* U2, integer_t ldu2,
 	float* work, integer_t lwork,
 	integer_t* iwork)
 {
-	assert( l );
+	assert( p_l );
+	assert( p_w );
 	assert( work );
 
 	integer_t info = -1;
 	sggqrcs_(
 		&jobu1, &jobu2, &jobx,
-		&m, &n, &p, l,
+		&m, &n, &p, p_l, p_w,
 		A, &lda, B, &ldb,
 		theta,
 		U1, &ldu1, U2, &ldu2,
