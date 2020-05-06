@@ -838,6 +838,66 @@ BOOST_AUTO_TEST_CASE(
 
 
 
+BOOST_AUTO_TEST_CASE(
+	xGGQRCS_test_singular_accuracy_vs_radians_accuracy,
+	* boost::unit_test::expected_failures(2))
+{
+	using Number = float;
+	using Real = typename real_from<Number>::type;
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
+
+	constexpr auto eps = std::numeric_limits<Real>::epsilon();
+	auto m = std::size_t{2};
+	auto n = std::size_t{1};
+	auto p = std::size_t{2};
+	auto r = std::size_t{1};
+	auto A = Matrix(m, n);
+	auto B = Matrix(p, n);
+
+	// you can probably turn this into a test with a pair of 1x1 matrices
+	A(0,0) = +4.369503870e-07;
+	A(1,0) = +1.496136406e-06;
+	B(0,0) = -7.727422714e-01;
+	B(1,0) = +6.347199082e-01;
+
+	auto caller = xGGQRCS_Caller<Number>(m, n, p);
+
+	caller.A = A;
+	caller.B = B;
+
+	auto ret = caller();
+
+	check_results(ret, A, B, caller);
+
+	BOOST_REQUIRE_EQUAL( caller.rank, 1 );
+
+	// computed with 2xSVD in double precision
+	auto theta = Real{1.570794768};
+	auto cos = Real{1.5586372e-06};
+
+	BOOST_CHECK_LE(std::abs(theta - caller.theta[0]), eps*theta );
+	BOOST_CHECK_LE(std::abs(Real{1} - std::sin(theta)), eps);
+	// should fail
+	BOOST_CHECK_LE(std::abs(cos - std::cos(theta)), eps*cos);
+
+	auto X = copy_X(caller);
+	auto ds =
+		assemble_diagonals_like(Number{}, m, p, r, caller.w, caller.theta);
+	auto& D1 = ds.first;
+	auto& D2 = ds.second;
+	auto almost_A = assemble_matrix(caller.U1, D1, X);
+	auto almost_B = assemble_matrix(caller.U2, D2, X);
+	auto tol = [] (const Matrix& a) {
+		return std::max(a.size1(), a.size2()) * ublas::norm_frobenius(a) * eps;
+	};
+
+	// should fail
+	BOOST_CHECK_LE(ublas::norm_frobenius(A - almost_A), tol(A));
+	BOOST_CHECK_LE(ublas::norm_frobenius(B - almost_B), tol(B));
+}
+
+
+
 template<
 	typename Number,
 	typename std::enable_if<
