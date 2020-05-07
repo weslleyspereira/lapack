@@ -110,14 +110,14 @@ extern "C"
 	);
 
 	void dggqrcs_(
-		char* jobu1, char* jobu2, char* jobqt,
+		char* jobu1, char* jobu2, char* jobx,
 		lapack_int* m, lapack_int* n, lapack_int* p,
-		double* w, lapack_int* l,
+		lapack_int* l, lapack_int* p_swapped_p,
 		double* A, lapack_int* lda, double* B, lapack_int* ldb,
-		double* theta,
+		double* alpha, double* beta,
 		double* U1, lapack_int* ldu1, double* U2, lapack_int* ldu2,
-		double* Qt, lapack_int* ldqt,
-		double* work, lapack_int* lwork, lapack_int* iwork,
+		double* work, lapack_int* lwork,
+		lapack_int* iwork,
 		lapack_int* info,
 		std::size_t jobu1_len, std::size_t jobu2_len, std::size_t jobqt_len
 	);
@@ -484,59 +484,33 @@ inline integer_t ggqrcs(
 }
 
 inline integer_t ggqrcs(
-	char jobu1, char jobu2, char jobqt,
-	integer_t m, integer_t n, integer_t p, float* w, integer_t* l,
-	std::complex<float>* A, integer_t lda,
-	std::complex<float>* B, integer_t ldb,
-	float* theta,
-	std::complex<float>* U1, integer_t ldu1,
-	std::complex<float>* U2, integer_t ldu2,
-	std::complex<float>* Qt, integer_t ldqt,
-	std::complex<float>* work, integer_t lwork,
-	float* rwork, integer_t lrwork,
+	char jobu1, char jobu2, char jobx,
+	integer_t m, integer_t n, integer_t p, integer_t* p_l,
+	bool* p_swapped_p,
+	double* A, integer_t lda, double* B, integer_t ldb,
+	double* p_alpha, double* p_beta,
+	double* U1, integer_t ldu1, double* U2, integer_t ldu2,
+	double* work, integer_t lwork,
 	integer_t* iwork)
 {
-	assert( w );
-	assert( l );
-	assert( work );
-	assert( rwork );
-
-	integer_t info = -1;
-	cggqrcs_(
-		&jobu1, &jobu2, &jobqt,
-		&m, &n, &p, w, l,
-		A, &lda, B, &ldb,
-		theta,
-		U1, &ldu1, U2, &ldu2, Qt, &ldqt,
-		work, &lwork, rwork, &lrwork, iwork, &info,
-		1, 1, 1);
-	return info;
-}
-
-
-
-inline integer_t ggqrcs(
-	char jobu1, char jobu2, char jobqt,
-	integer_t m, integer_t n, integer_t p, double* w, integer_t* l,
-	double* A, integer_t lda, double* B, integer_t ldb,
-	double* theta,
-	double* U1, integer_t ldu1, double* U2, integer_t ldu2,
-	double* Qt, integer_t ldqt,
-	double* work, integer_t lwork, integer_t* iwork)
-{
-	assert( w );
-	assert( l );
+	assert( p_l );
+	assert( p_swapped_p );
+	assert( p_alpha );
+	assert( p_beta );
 	assert( work );
 
 	integer_t info = -1;
+	integer_t swapped_p = -1;
 	dggqrcs_(
-		&jobu1, &jobu2, &jobqt,
-		&m, &n, &p, w, l,
+		&jobu1, &jobu2, &jobx,
+		&m, &n, &p, p_l, &swapped_p,
 		A, &lda, B, &ldb,
-		theta,
-		U1, &ldu1, U2, &ldu2, Qt, &ldqt,
-		work, &lwork, iwork, &info,
+		p_alpha, p_beta,
+		U1, &ldu1, U2, &ldu2,
+		work, &lwork,
+		iwork, &info,
 		1, 1, 1);
+	*p_swapped_p = swapped_p != 0;
 	return info;
 }
 
