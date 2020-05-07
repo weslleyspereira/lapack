@@ -123,15 +123,14 @@ extern "C"
 	);
 
 	void cggqrcs_(
-		char* jobu1, char* jobu2, char* jobqt,
+		char* jobu1, char* jobu2, char* jobx,
 		lapack_int* m, lapack_int* n, lapack_int* p,
-		float* w, lapack_int* l,
+		lapack_int* l, lapack_int* swapped_p,
 		std::complex<float>* A, lapack_int* lda,
 		std::complex<float>* B, lapack_int* ldb,
-		float* theta,
+		float* alpha, float* beta,
 		std::complex<float>* U1, lapack_int* ldu1,
 		std::complex<float>* U2, lapack_int* ldu2,
-		std::complex<float>* Qt, lapack_int* ldqt,
 		std::complex<float>* work, lapack_int* lwork,
 		float* rwork, lapack_int* lrwork,
 		lapack_int* iwork,
@@ -515,32 +514,36 @@ inline integer_t ggqrcs(
 }
 
 inline integer_t ggqrcs(
-	char jobu1, char jobu2, char jobqt,
-	integer_t m, integer_t n, integer_t p, double* w, integer_t* l,
-	std::complex<double>* A, integer_t lda,
-	std::complex<double>* B, integer_t ldb,
-	double* theta,
-	std::complex<double>* U1, integer_t ldu1,
-	std::complex<double>* U2, integer_t ldu2,
-	std::complex<double>* Qt, integer_t ldqt,
-	std::complex<double>* work, integer_t lwork,
-	double* rwork, integer_t lrwork,
+	char jobu1, char jobu2, char jobx,
+	integer_t m, integer_t n, integer_t p, integer_t* p_l,
+	bool* p_swapped_p,
+	std::complex<float>* A, integer_t lda,
+	std::complex<float>* B, integer_t ldb,
+	float* p_alpha, float* p_beta,
+	std::complex<float>* U1, integer_t ldu1,
+	std::complex<float>* U2, integer_t ldu2,
+	std::complex<float>* work, integer_t lwork,
+	float* rwork, integer_t lrwork,
 	integer_t* iwork)
 {
-	assert( w );
-	assert( l );
+	assert( p_l );
+	assert( p_swapped_p );
+	assert( p_alpha );
+	assert( p_beta );
 	assert( work );
 	assert( rwork );
 
 	integer_t info = -1;
-	zggqrcs_(
-		&jobu1, &jobu2, &jobqt,
-		&m, &n, &p, w, l,
+	integer_t swapped_p = -1;
+	cggqrcs_(
+		&jobu1, &jobu2, &jobx,
+		&m, &n, &p, p_l, &swapped_p,
 		A, &lda, B, &ldb,
-		theta,
-		U1, &ldu1, U2, &ldu2, Qt, &ldqt,
+		p_alpha, p_beta,
+		U1, &ldu1, U2, &ldu2,
 		work, &lwork, rwork, &lrwork, iwork, &info,
 		1, 1, 1);
+	*p_swapped_p = swapped_p != 0;
 	return info;
 }
 
