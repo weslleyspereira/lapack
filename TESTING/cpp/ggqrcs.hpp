@@ -1061,6 +1061,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 
 	gen.discard(1u << 17);
 
+	std::printf(
+		"%2s %8s  %44s  %44s\n",
+		"d", "condition", "five-number summary norm(A)/norm(B)",
+		"five-number summary relative forward error"
+	);
+
 	for(auto option = 1u; option <= 2u; ++option)
 	{
 		for(auto d = std::size_t{2}; d <= 65; d += 20)
@@ -1199,6 +1205,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_row_scaling, Number, test_types)
 	auto gen = std::mt19937();
 
 	gen.discard(1u << 17);
+
+	std::printf(
+		"%2s %44s %44s\n",
+		"d",
+		"five-number summary relative backward error A",
+		"five-number summary relative backward error B"
+	);
 
 	for(auto d = std::size_t{5}; d <= 45; d += 10)
 	{
