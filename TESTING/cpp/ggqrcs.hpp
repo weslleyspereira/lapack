@@ -255,10 +255,10 @@ std::pair<Real, Real> check_results(
 	BOOST_REQUIRE( B.size1() == U2.size1() );
 	BOOST_REQUIRE( A.size2() == X.size2() );
 
+	constexpr auto eps = std::numeric_limits<Real>::epsilon();
 	auto m = A.size1();
 	auto n = A.size2();
 	auto p = B.size1();
-	auto eps = std::numeric_limits<Real>::epsilon();
 
 	// check scalars
 	BOOST_CHECK_EQUAL( ret, 0 );
@@ -321,21 +321,21 @@ std::pair<Real, Real> check_results(
 
 
 	// reconstruct A, B from GSVD
+	using Matrix = ublas::matrix<Number, Storage>;
+
 	auto ds = assemble_diagonals_like(Number{}, m, p, r, swapped_p,alpha, beta);
 	auto& D1 = ds.first;
 	auto& D2 = ds.second;
 	auto almost_A = assemble_matrix(U1, D1, X);
 	auto almost_B = assemble_matrix(U2, D2, X);
-	auto norm_A = ublas::norm_frobenius(A);
-	auto norm_B = ublas::norm_frobenius(B);
-	auto norm_AB = std::sqrt(norm_A*norm_A + norm_B*norm_B);
-	// xGGQRCS is only conditionally backward stable
-	auto tol = 8 * std::max(m + p, n) * norm_AB * eps;
+	auto tol = [m, n, p] (const Matrix& A) {
+		return 8 * std::max(m + p, n) * ublas::norm_frobenius(A) * eps;
+	};
 	auto backward_error_A = ublas::norm_frobenius(A - almost_A);
 	auto backward_error_B = ublas::norm_frobenius(B - almost_B);
 
-	BOOST_CHECK_LE(backward_error_A, tol);
-	BOOST_CHECK_LE(backward_error_B, tol);
+	BOOST_CHECK_LE(backward_error_A, tol(A));
+	BOOST_CHECK_LE(backward_error_B, tol(B));
 
 	return std::make_pair(backward_error_A, backward_error_B);
 }
