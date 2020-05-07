@@ -41,6 +41,13 @@
 #include <complex>
 
 
+/**
+ * Implementation hints:
+ * * Pass Fortran integers for Fortran LOGICAL arguments. Passing C/C++ booleans
+ *   directly causes crashes.
+ */
+
+
 extern "C"
 {
 	lapack_int sgemm_(
@@ -92,9 +99,9 @@ extern "C"
 	void sggqrcs_(
 		char* jobu1, char* jobu2, char* jobx,
 		lapack_int* m, lapack_int* n, lapack_int* p,
-		lapack_int* l, float* w,
+		lapack_int* l, lapack_int* p_swapped_p,
 		float* A, lapack_int* lda, float* B, lapack_int* ldb,
-		float* theta,
+		float* alpha, float* beta,
 		float* U1, lapack_int* ldu1, float* U2, lapack_int* ldu2,
 		float* work, lapack_int* lwork,
 		lapack_int* iwork,
@@ -447,27 +454,32 @@ inline integer_t gesvd(
 
 inline integer_t ggqrcs(
 	char jobu1, char jobu2, char jobx,
-	integer_t m, integer_t n, integer_t p, integer_t* p_l, float* p_w,
+	integer_t m, integer_t n, integer_t p, integer_t* p_l,
+	bool* p_swapped_p,
 	float* A, integer_t lda, float* B, integer_t ldb,
-	float* theta,
+	float* p_alpha, float* p_beta,
 	float* U1, integer_t ldu1, float* U2, integer_t ldu2,
 	float* work, integer_t lwork,
 	integer_t* iwork)
 {
 	assert( p_l );
-	assert( p_w );
+	assert( p_swapped_p );
+	assert( p_alpha );
+	assert( p_beta );
 	assert( work );
 
 	integer_t info = -1;
+	integer_t swapped_p = -1;
 	sggqrcs_(
 		&jobu1, &jobu2, &jobx,
-		&m, &n, &p, p_l, p_w,
+		&m, &n, &p, p_l, &swapped_p,
 		A, &lda, B, &ldb,
-		theta,
+		p_alpha, p_beta,
 		U1, &ldu1, U2, &ldu2,
 		work, &lwork,
 		iwork, &info,
 		1, 1, 1);
+	*p_swapped_p = swapped_p != 0;
 	return info;
 }
 

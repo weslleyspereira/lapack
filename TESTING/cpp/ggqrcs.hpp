@@ -83,9 +83,8 @@ extern "C" void xerbla_(
 
 
 /**
- * Given the matrix dimensions, the scaling factor, and the singular values in
- * radians computed by xGGQRCS, this function assembles the GSVD diagonal
- * matrices.
+ * Given the matrix dimensions, the scaling factor, and the sine, cosine values
+ * computed by xGGQRCS, this function assembles the GSVD diagonal matrices.
  */
 template<
 	typename Number,
@@ -94,19 +93,17 @@ template<
 >
 std::pair< ublas::matrix<Number, Storage>, ublas::matrix<Number, Storage> >
 assemble_diagonals_like(
-	Number,
-	std::size_t m, std::size_t p, std::size_t r, Real w,
-	const ublas::vector<Real>& theta)
+	Number dummy,
+	std::size_t m, std::size_t p, std::size_t r, bool swapped_p,
+	const ublas::vector<Real>& alpha,
+	const ublas::vector<Real>& beta)
 {
 	using Matrix = ublas::matrix<Number, Storage>;
 	using IdentityMatrix = ublas::identity_matrix<Number>;
-	using MatrixRange = ublas::matrix_range<Matrix>;
 
-	BOOST_VERIFY(std::isfinite(w));
-
-	if(w > 0)
+	if(swapped_p)
 	{
-		auto ds = assemble_diagonals_like(Number{}, p, m, r, Real{-1}, theta);
+		auto ds = assemble_diagonals_like(dummy, p, m, r, false, beta, alpha);
 		return std::make_pair(ds.second, ds.first);
 	}
 
@@ -116,30 +113,29 @@ assemble_diagonals_like(
 	auto D1 = Matrix(m, r, 0);
 	auto D2 = Matrix(p, r, 0);
 
-	if(k1 > 0)
-	{
-		MatrixRange D1_33 = ublas::subrange(D1, m - k1, m, r - k1, r);
-		D1_33 = IdentityMatrix(k1);
-	}
+	ublas::subrange(D1, 0, k1, 0, k1) = IdentityMatrix(k1);
+	ublas::subrange(D2, p - k2, p, r - k2, r) = IdentityMatrix(k2);
 
-	if(k2 > 0)
-	{
-		MatrixRange D2_11 = ublas::subrange(D2, 0, k2, 0, k2);
-		D2_11 = IdentityMatrix(k2);
-	}
+	auto D1_22 = ublas::subrange(D1, k1, k1+k, k1, k1+k);
+	auto D2_12 = ublas::subrange(D2, p-k-k2, p-k2, r-k-k2, r-k2);
 
-	auto D1_22 = ublas::subrange(D1, m-k-k1, m-k1, r-k-k1, r-k1);
-	auto D2_22 = ublas::subrange(D2, k2, k2+k, k2, k2+k);
-
-	for(std::size_t i = 0; i < k; ++i)
+	for(auto i = std::size_t{0}; i < k; ++i)
 	{
-		D1_22(i, i) = std::sin( theta(i) );
-		D2_22(i, i) = std::cos( theta(i) );
+		D1_22(i,i) = alpha(i);
+		D2_12(i,i) = beta(i);
 	}
 
 	return std::make_pair(D1, D2);
 }
 
+/**
+ * Given the matrix dimensions, the scaling factor, and the singular values in
+ * radians computed by xGGQRCS, this function assembles the GSVD diagonal
+ * matrices.
+ *
+ * The tests were written with the assumption that A = U1 S X, B = U2 C X before
+ * xGGQRCS began swapping A, B as needed.
+ */
 template<
 	typename Number,
 	class Storage = ublas::column_major,
@@ -147,11 +143,23 @@ template<
 >
 std::pair< ublas::matrix<Number, Storage>, ublas::matrix<Number, Storage> >
 assemble_diagonals_like(
-	Number,
+	Number dummy,
 	std::size_t m, std::size_t p, std::size_t r,
 	const ublas::vector<Real>& theta)
 {
-	return assemble_diagonals_like(Number{}, m, p, r, Real{-1}, theta);
+	auto real_nan = not_a_number<Real>::value;
+	auto k = std::min( {m, p, r, m + p - r} );
+	auto alpha = ublas::vector<Real>(k, real_nan);
+	auto beta = ublas::vector<Real>(k, real_nan);
+	auto swapped_p = true;
+
+	for(auto i = std::size_t{0}; i < k; ++i)
+	{
+		alpha(i) = std::sin(theta(i));
+		beta(i) = std::cos(theta(i));
+	}
+
+	return assemble_diagonals_like(dummy, m, p, r, swapped_p, alpha, beta);
 }
 
 
@@ -235,8 +243,9 @@ std::pair<Real, Real> check_results(
 	const ublas::matrix<Number, Storage>& A,
 	const ublas::matrix<Number, Storage>& B,
 	Integer rank,
-	Real w,
-	const ublas::vector<Real> theta,
+	bool swapped_p,
+	const ublas::vector<Real> alpha,
+	const ublas::vector<Real> beta,
 	const ublas::matrix<Number, Storage>& U1,
 	const ublas::matrix<Number, Storage>& U2,
 	const ublas::matrix<Number, Storage>& X)
@@ -257,13 +266,11 @@ std::pair<Real, Real> check_results(
 	BOOST_CHECK_GE( rank, 0 );
 	BOOST_CHECK_LE( rank, std::min(m+p, n) );
 
-	BOOST_CHECK(std::isfinite(w));
-	BOOST_CHECK_NE(w, 0);
-
 	auto r = static_cast<std::size_t>(rank);
 	auto k = std::min( {m, p, r, m + p - r} );
 
-	BOOST_REQUIRE_GE(theta.size(), k);
+	BOOST_REQUIRE_GE(alpha.size(), k);
+	BOOST_REQUIRE_GE(beta.size(), k);
 
 
 	// check for NaN
@@ -276,7 +283,8 @@ std::pair<Real, Real> check_results(
 	if( k > 0 )
 	{
 		bool(*isnan_r)(Real) = &nan_p;
-		BOOST_REQUIRE( std::none_of( &theta(0), &theta(0)+k, isnan_r) );
+		BOOST_REQUIRE( std::none_of( &alpha(0), &alpha(0)+k, isnan_r) );
+		BOOST_REQUIRE( std::none_of( &beta(0), &beta(0)+k, isnan_r) );
 	}
 
 
@@ -290,7 +298,8 @@ std::pair<Real, Real> check_results(
 	if( k > 0 )
 	{
 		bool(*is_inf)(Real) = &inf_p;
-		BOOST_REQUIRE( std::none_of( &theta(0), &theta(0)+k, is_inf) );
+		BOOST_REQUIRE( std::none_of( &alpha(0), &alpha(0)+k, is_inf) );
+		BOOST_REQUIRE( std::none_of( &beta(0), &beta(0)+k, is_inf) );
 	}
 
 
@@ -302,20 +311,17 @@ std::pair<Real, Real> check_results(
 
 
 	// check the "singular values"
-	BOOST_CHECK_GE( theta.size(), k );
-
 	for(auto i = std::size_t{0}; i < k; ++i)
 	{
-		BOOST_CHECK_GE( theta[i], 0 );
-		BOOST_CHECK_LE( theta[i], Real(M_PI/2) );
-
-		if( i > 0 )
-			BOOST_CHECK_LE( theta[i-1], theta[i] );
+		BOOST_CHECK_GE(alpha(i), -eps );
+		BOOST_CHECK_LE(alpha(i), Real{1}+eps );
+		BOOST_CHECK_GE(beta(i), -eps );
+		BOOST_CHECK_LE(beta(i), Real{1}+eps );
 	}
 
 
 	// reconstruct A, B from GSVD
-	auto ds = assemble_diagonals_like(Number{}, m, p, r, w, theta);
+	auto ds = assemble_diagonals_like(Number{}, m, p, r, swapped_p,alpha, beta);
 	auto& D1 = ds.first;
 	auto& D2 = ds.second;
 	auto almost_A = assemble_matrix(U1, D1, X);
@@ -360,12 +366,12 @@ struct xGGQRCS_Caller
 	bool compute_u2_p = true;
 	bool compute_x_p = true;
 	Integer rank = -1;
-	Real w = not_a_number<Real>::value;
+	bool swapped_p = false;
 	std::size_t m, n, p;
 	std::size_t lda, ldb, ldu1, ldu2;
 	Matrix A, B;
 	Matrix U1, U2;
-	Vector<Number> theta;
+	Vector<Number> alpha, beta;
 	Vector<Number> work;
 	Vector<Integer> iwork;
 
@@ -408,7 +414,8 @@ struct xGGQRCS_Caller
 		B(ldb, n, 0),
 		U1(ldu1, m, not_a_number<Number>::value),
 		U2(ldu2, p, not_a_number<Number>::value),
-		theta(n, not_a_number<Real>::value),
+		alpha(n, not_a_number<Real>::value),
+		beta(n, not_a_number<Real>::value),
 		iwork(m + n + p, -1)
 	{
 		BOOST_VERIFY( m > 0 );
@@ -428,9 +435,9 @@ struct xGGQRCS_Caller
 		auto lwork_opt_f = nan;
 		auto rank = Integer{-1};
 		auto ret = lapack::ggqrcs(
-			jobu1, jobu2, jobx, m, n, p, &rank, &w,
+			jobu1, jobu2, jobx, m, n, p, &rank, &swapped_p,
 			&A(0, 0), lda, &B(0, 0), ldb,
-			&theta(0),
+			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
 			&lwork_opt_f, -1, &iwork(0) );
 		BOOST_REQUIRE_EQUAL( ret, 0 );
@@ -450,9 +457,9 @@ struct xGGQRCS_Caller
 		auto jobu2 = bool2lapackjob(compute_u2_p);
 		auto jobx = bool2lapackjob(compute_x_p);
 		return lapack::ggqrcs(
-			jobu1, jobu2, jobx, m, n, p, &rank, &w,
+			jobu1, jobu2, jobx, m, n, p, &rank, &swapped_p,
 			&A(0, 0), lda, &B(0, 0), ldb,
-			&theta(0),
+			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
 			&work(0), work.size(), &iwork(0)
 		);
@@ -471,12 +478,12 @@ struct xGGQRCS_Caller<std::complex<Real>>
 	bool compute_u2_p = true;
 	bool compute_x_p = true;
 	Integer rank = -1;
-	Real w = not_a_number<Real>::value;
+	bool swapped_p = false;
 	std::size_t m, n, p;
 	std::size_t lda, ldb, ldu1, ldu2;
 	Matrix A, B;
 	Matrix U1, U2;
-	Vector<Real> theta;
+	Vector<Real> alpha, beta;
 	Vector<Number> work;
 	Vector<Real> rwork;
 	Vector<Integer> iwork;
@@ -520,7 +527,8 @@ struct xGGQRCS_Caller<std::complex<Real>>
 		B(ldb, n, 0),
 		U1(ldu1, m, not_a_number<Number>::value),
 		U2(ldu2, p, not_a_number<Number>::value),
-		theta(n, not_a_number<Real>::value),
+		alpha(n, not_a_number<Real>::value),
+		beta(n, not_a_number<Real>::value),
 		iwork(m + n + p, -1)
 	{
 		BOOST_VERIFY( m > 0 );
@@ -542,9 +550,9 @@ struct xGGQRCS_Caller<std::complex<Real>>
 		auto lrwork_opt_f = real_nan;
 		auto rank = Integer{-1};
 		auto ret = lapack::ggqrcs(
-			jobu1, jobu2, jobx, m, n, p, &rank, &w,
+			jobu1, jobu2, jobx, m, n, p, &rank, &swapped_p,
 			&A(0, 0), lda, &B(0, 0), ldb,
-			&theta(0),
+			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
 			&lwork_opt_f, -1, &lrwork_opt_f, 1, &iwork(0) );
 		BOOST_REQUIRE_EQUAL( ret, 0 );
@@ -566,9 +574,9 @@ struct xGGQRCS_Caller<std::complex<Real>>
 		auto jobu2 = bool2lapackjob(compute_u2_p);
 		auto jobx = bool2lapackjob(compute_x_p);
 		return lapack::ggqrcs(
-			jobu1, jobu2, jobx, m, n, p, &rank, &w,
+			jobu1, jobu2, jobx, m, n, p, &rank, &swapped_p,
 			&A(0, 0), lda, &B(0, 0), ldb,
-			&theta(0),
+			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
 			&work(0), work.size(),
 			&rwork(0), rwork.size(),
@@ -625,8 +633,9 @@ std::pair<Real, Real> check_results(
 		ret,
 		A, B,
 		caller.rank,
-		caller.w,
-		caller.theta,
+		caller.swapped_p,
+		caller.alpha,
+		caller.beta,
 		U1, U2,
 		X
 	);
@@ -710,7 +719,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_1_2_3, Number, test_types)
 	auto m = std::size_t{1};
 	auto n = std::size_t{2};
 	auto p = std::size_t{3};
-	auto caller = xGGQRCS_Caller<Number>(m, n, p, m, p, m, p);
+	auto caller = xGGQRCS_Caller<Number>(m, n, p);
 	auto A = caller.A;
 	auto B = caller.B;
 
@@ -800,8 +809,9 @@ BOOST_AUTO_TEST_CASE(
 		check_results(ret, A, B, caller);
 
 		auto X = copy_X(caller);
-		auto ds =
-			assemble_diagonals_like(Number{}, m, p, r, caller.w, caller.theta);
+		auto ds = assemble_diagonals_like(
+			Number{}, m, p, r, caller.swapped_p, caller.alpha, caller.beta
+		);
 		auto& D1 = ds.first;
 		auto& D2 = ds.second;
 		auto almost_A = assemble_matrix(caller.U1, D1, X);
@@ -824,8 +834,9 @@ BOOST_AUTO_TEST_CASE(
 		BOOST_REQUIRE_EQUAL( ret, 0 );
 
 		auto X = copy_X(caller);
-		auto ds =
-			assemble_diagonals_like(Number{}, m, p, r, caller.w, caller.theta);
+		auto ds = assemble_diagonals_like(
+			Number{}, m, p, r, caller.swapped_p, caller.alpha, caller.beta
+		);
 		auto& D1 = ds.first;
 		auto& D2 = ds.second;
 		auto almost_A = assemble_matrix(caller.U1, D1, X);
@@ -870,19 +881,18 @@ BOOST_AUTO_TEST_CASE(
 	check_results(ret, A, B, caller);
 
 	BOOST_REQUIRE_EQUAL( caller.rank, 1 );
+	BOOST_REQUIRE( !caller.swapped_p );
 
 	// computed with 2xSVD in double precision
-	auto theta = Real{1.570794768};
 	auto cos = Real{1.5586372e-06};
 
-	BOOST_CHECK_LE(std::abs(theta - caller.theta[0]), eps*theta );
-	BOOST_CHECK_LE(std::abs(Real{1} - std::sin(theta)), eps);
 	// should fail
-	BOOST_CHECK_LE(std::abs(cos - std::cos(theta)), eps*cos);
+	BOOST_CHECK_LE(std::abs(cos - caller.alpha(0)), eps*cos);
+	BOOST_CHECK_LE(std::abs(Real{1} - caller.beta(0)), eps);
 
 	auto X = copy_X(caller);
-	auto ds =
-		assemble_diagonals_like(Number{}, m, p, r, caller.w, caller.theta);
+	auto ds = assemble_diagonals_like(
+		Number{}, m, p, r, caller.swapped_p, caller.alpha, caller.beta);
 	auto& D1 = ds.first;
 	auto& D2 = ds.second;
 	auto almost_A = assemble_matrix(caller.U1, D1, X);
@@ -912,20 +922,21 @@ void xGGQRCS_test_zero_dimensions_impl(Number)
 	constexpr auto real_nan = not_a_number<Real>::value;
 
 	auto rank = Integer{-1};
-	auto w = real_nan;
+	auto swapped_p = false;
 	auto lda = 1;
 	auto A = std::vector<Number>(lda*1, nan);
 	auto ldb = 1;
 	auto B = std::vector<Number>(ldb*1, nan);
-	auto theta = std::vector<Real>(1, real_nan);
+	auto alpha = std::vector<Real>(1, real_nan);
+	auto beta = std::vector<Real>(1, real_nan);
 	auto lwork = 1;
 	auto work = std::vector<Number>(lwork, nan);
 	auto iwork = std::vector<Integer>(1, -1);
 	auto f = [&] (std::size_t m, std::size_t n, std::size_t p) {
 		return lapack::ggqrcs(
-			'N', 'N', 'N', m, n, p, &rank, &w,
+			'N', 'N', 'N', m, n, p, &rank, &swapped_p,
 			&A[0], lda, &B[0], ldb,
-			&theta[0],
+			&alpha[0], &beta[0],
 			nullptr, 1, nullptr, 1,
 			&work[0], lwork, &iwork[0]
 		);
@@ -950,11 +961,13 @@ void xGGQRCS_test_zero_dimensions_impl(Number)
 	constexpr auto real_nan = not_a_number<Real>::value;
 
 	auto rank = Integer{-1};
+	auto swapped_p = false;
 	auto lda = 1;
 	auto A = std::vector<Number>(lda*1, nan);
 	auto ldb = 1;
 	auto B = std::vector<Number>(ldb*1, nan);
-	auto theta = std::vector<Real>(1, real_nan);
+	auto alpha = std::vector<Real>(1, real_nan);
+	auto beta = std::vector<Real>(1, real_nan);
 	auto lwork = 1;
 	auto work = std::vector<Number>(lwork, nan);
 	auto lrwork = 1;
@@ -962,9 +975,9 @@ void xGGQRCS_test_zero_dimensions_impl(Number)
 	auto iwork = std::vector<Integer>(1, -1);
 	auto f = [&] (std::size_t m, std::size_t n, std::size_t p) {
 		return lapack::ggqrcs(
-			'N', 'N', 'N', m, n, p, &rank,
+			'N', 'N', 'N', m, n, p, &rank, &swapped_p,
 			&A[0], lda, &B[0], ldb,
-			&theta[0],
+			&alpha[0], &beta[0],
 			nullptr, 1, nullptr, 1,
 			&work[0], lwork, &rwork[0], lrwork, &iwork[0]
 		);
@@ -1129,9 +1142,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 
 				BOOST_REQUIRE_LE(caller.rank, r);
 
-				auto s = static_cast<std::size_t>(caller.rank);
-				auto l = std::min({m, p, s, m+p-s});
-				auto iota = ublas::subrange(caller.theta, 0, l);
+				auto rank = static_cast<std::size_t>(caller.rank);
+				auto l = std::min({m, p, rank, m+p-rank});
+				auto alpha = ublas::subrange(caller.alpha, 0, l);
+				auto beta = ublas::subrange(caller.beta, 0, l);
 				auto eps = std::numeric_limits<Real>::epsilon();
 				// relative forward error
 				auto delta_fe = ublas::vector<Real>(l, real_nan);
@@ -1140,17 +1154,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, test_types)
 
 				for(auto i = std::size_t{0}; i < l; ++i)
 				{
-					// exploit sin(pi/2 - x) = cos(x) when w > 0
-					auto w = caller.w;
 					auto x = theta(i);
-					auto y = iota(i);
 					auto abs = [] (Real x) { return std::abs(x); };
 					auto cos = [] (Real x) { return std::cos(x); };
 					auto sin = [] (Real x) { return std::sin(x); };
 					auto rel_forward_error =
-						(w < 0)            ? abs(x-y) / x :
-						(cos(x) >= sin(x)) ? abs(cos(x)-sin(y)) / cos(x) :
-						                     abs(sin(x)-cos(y)) / sin(x)
+						(cos(x) >= sin(x)) ? abs(cos(x)-beta(i)) / cos(x) :
+						                     abs(sin(x)-alpha(i)) / sin(x)
 					;
 					delta_fe(i) = rel_forward_error / eps;
 					cond_max =
@@ -1794,6 +1804,10 @@ struct xGGSVD3_Caller<std::complex<Real>>
 /**
  * This function assembles the diagonal matrices of a generalized SVD with the
  * values computed by xGGSVD3.
+ *
+ * The arguments are in a different order compared to the same function for
+ * xGGQRCS so that the compiler does not complain about ambiguous calls f(1)
+ * when you have overloaded functions f(int), f(bool). Stupid type coercions.
  */
 template<
 	typename Number,
@@ -1803,10 +1817,10 @@ template<
 std::pair< ublas::matrix<Number, Storage>, ublas::matrix<Number, Storage> >
 assemble_diagonals_like(
 	Number,
-	std::size_t m, std::size_t p,
-	std::size_t k, std::size_t l,
 	const ublas::vector<Real>& alpha,
-	const ublas::vector<Real>& beta)
+	const ublas::vector<Real>& beta,
+	std::size_t m, std::size_t p,
+	std::size_t k, std::size_t l)
 {
 	using Matrix = ublas::matrix<Number, Storage>;
 	using IdentityMatrix = ublas::identity_matrix<Number>;
@@ -1988,7 +2002,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 
 				auto X = copy_X(qrcs);
 				auto ds = assemble_diagonals_like(
-					dummy, m, p, qrcs.rank, qrcs.w, qrcs.theta
+					dummy, m, p, qrcs.rank, qrcs.swapped_p, qrcs.alpha, qrcs.beta
 				);
 				auto& D1 = ds.first;
 				auto& D2 = ds.second;
@@ -2012,7 +2026,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, test_type
 
 				auto R = assemble_R(svd3.k, svd3.l, svd3.X, svd3.Y);
 				auto ds = assemble_diagonals_like(
-					Number{}, p, m, svd3.k, svd3.l, svd3.alpha, svd3.beta
+					Number{}, svd3.alpha, svd3.beta, p, m, svd3.k, svd3.l
 				);
 				auto& D1 = ds.first;
 				auto& D2 = ds.second;
