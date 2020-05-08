@@ -1,17 +1,17 @@
 /*
- * Copyright (c) 2020 Christoph Conrads (https://christoph-conrads.name)
+ * Copyright (c) 2020, Christoph Conrads (https://christoph-conrads.name)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *  * Redistributions of source code must retain the above copyright
- *	notice, this list of conditions and the following disclaimer.
+ *    notice, this list of conditions and the following disclaimer.
  *  * Redistributions in binary form must reproduce the above copyright
- *	notice, this list of conditions and the following disclaimer in the
- *	documentation and/or other materials provided with the distribution.
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *  * Neither the name of the copyright holders nor the
- *	names of its contributors may be used to endorse or promote products
- *	derived from this software without specific prior written permission.
+ *    names of its contributors may be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -25,9 +25,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef LAPACK_TESTS_xLASRTR_HPP
-#define LAPACK_TESTS_xLASRTR_HPP
 
+#include "config.hpp"
 #include "lapack.hpp"
 #include "tools.hpp"
 
@@ -39,15 +38,17 @@
 #include <random>
 #include <vector>
 
-
+namespace tools = lapack::tools;
 namespace ublas = boost::numeric::ublas;
 
 using Integer = lapack::integer_t;
+using types = lapack::supported_types;
+
 
 template<typename Number>
 void xLASRTR_test_simple_impl(Number)
 {
-	using Real = typename real_from<Number>::type;
+	using Real = typename tools::real_from<Number>::type;
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 
 	auto A = Matrix(3, 1);
@@ -57,9 +58,9 @@ void xLASRTR_test_simple_impl(Number)
 	A(2,0) = 3;
 
 	auto ipvt = std::vector<Integer>(3, -1);
-	auto real_nan = not_a_number<Real>::value;
+	auto real_nan = tools::not_a_number<Real>::value;
 	auto work = std::vector<Real>(3, real_nan);
-	auto ret = lapack::lasrtr('D', 3, 1, &A(0,0), 3, ipvt.data(), work.data());
+	auto ret = lapack::xLASRTR('D', 3, 1, &A(0,0), 3, ipvt.data(), work.data());
 
 	BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -75,7 +76,7 @@ void xLASRTR_test_simple_impl(Number)
 	BOOST_CHECK_EQUAL( work[1], 2 );
 	BOOST_CHECK_EQUAL( work[2], 3 );
 
-	ret = lapack::lasrtr('I', 3, 1, &A(0,0), 3, ipvt.data(), work.data());
+	ret = lapack::xLASRTR('I', 3, 1, &A(0,0), 3, ipvt.data(), work.data());
 
 	BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -92,7 +93,7 @@ void xLASRTR_test_simple_impl(Number)
 	BOOST_CHECK_EQUAL( work[2], 1 );
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(xLASRTR_test_simple, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xLASRTR_test_simple, Number, types)
 {
 	xLASRTR_test_simple_impl(Number{});
 }
@@ -102,7 +103,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xLASRTR_test_simple, Number, test_types)
 template<typename Number>
 void xLASRTR_test_random_impl(Number)
 {
-	using Real = typename real_from<Number>::type;
+	using Real = typename tools::real_from<Number>::type;
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 
 	// Hint for choice of dimensions:
@@ -116,9 +117,9 @@ void xLASRTR_test_random_impl(Number)
 			BOOST_TEST_CONTEXT("n=" << n) {
 
 			auto gen = std::minstd_rand(m + 257*n);
-			auto dist = UniformDistribution<Number>();
+			auto dist = tools::UniformDistribution<Number>();
 			auto lda = m + (m*n) % 13 + 7;
-			auto nan = not_a_number<Number>::value;
+			auto nan = tools::not_a_number<Number>::value;
 			auto A = Matrix(lda, n, nan);
 
 			for(auto j = std::size_t{0}; j < n; ++j)
@@ -130,11 +131,11 @@ void xLASRTR_test_random_impl(Number)
 			}
 
 			auto ipvt = std::vector<Integer>(m, -1);
-			auto real_nan = not_a_number<Real>::value;
+			auto real_nan = tools::not_a_number<Real>::value;
 			auto work = std::vector<Real>(m, real_nan);
 
 			// sort rows, check decreasing maximum norm values
-			auto ret = lapack::lasrtr(
+			auto ret = lapack::xLASRTR(
 				'D', m, n, &A(0,0), lda, ipvt.data(), work.data()
 			);
 
@@ -165,9 +166,9 @@ void xLASRTR_test_random_impl(Number)
 			auto B = Matrix(A);
 
 			std::shuffle(ipvt.begin(), ipvt.end(), gen);
-			lapack::lapmr(true, m, n, &A(0,0), lda, ipvt.data());
+			lapack::xLAPMR(true, m, n, &A(0,0), lda, ipvt.data());
 
-			ret = lapack::lasrtr(
+			ret = lapack::xLASRTR(
 				'D', m, n, &A(0,0), lda, ipvt.data(), work.data()
 			);
 			BOOST_REQUIRE_EQUAL( ret, 0 );
@@ -198,9 +199,7 @@ void xLASRTR_test_random_impl(Number)
 	}
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(xLASRTR_test_random, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xLASRTR_test_random, Number, types)
 {
 	xLASRTR_test_random_impl(Number{});
 }
-
-#endif

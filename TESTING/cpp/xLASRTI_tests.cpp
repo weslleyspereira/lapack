@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Christoph Conrads (https://christoph-conrads.name)
+ * Copyright (c) 2020, Christoph Conrads (https://christoph-conrads.name)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,21 +25,19 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef LAPACK_TESTS_xLASRTI_HPP
-#define LAPACK_TESTS_xLASRTI_HPP
 
-#include <boost/test/unit_test.hpp>
-#include <boost/test/tools/floating_point_comparison.hpp>
-
+#include "config.hpp"
 #include "lapack.hpp"
 #include "tools.hpp"
 
-#include <algorithm>
-#include <limits>
-#include <random>
+#include <boost/test/unit_test.hpp>
+#include <boost/test/tools/floating_point_comparison.hpp>
+#include <type_traits>
 
+namespace tools = lapack::tools;
 
 using Integer = lapack::integer_t;
+using types = lapack::supported_types;
 
 //
 // ATTENTION
@@ -55,11 +53,11 @@ template<
 >
 void xLASRTI_test_simple_impl(Number)
 {
-	using Real = typename real_from<Number>::type;
+	using Real = typename tools::real_from<Number>::type;
 
 	auto xs = std::vector<Real>( { 3, 2, -1 } );
 	auto is = std::vector<Integer>( { 1, 2, 3 } );
-	auto ret = lapack::lasrti('D', 3, xs.data(), is.data());
+	auto ret = lapack::xLASRTI('D', 3, xs.data(), is.data());
 
 	BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -71,7 +69,7 @@ void xLASRTI_test_simple_impl(Number)
 	BOOST_CHECK_EQUAL( is[1], 2 );
 	BOOST_CHECK_EQUAL( is[2], 3 );
 
-	ret = lapack::lasrti('I', 3, xs.data(), is.data());
+	ret = lapack::xLASRTI('I', 3, xs.data(), is.data());
 
 	BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -93,11 +91,12 @@ template<
 void xLASRTI_test_simple_impl(Number)
 {
 	// complex values cannot be sorted
+	BOOST_CHECK(true); // suppress Boost warnings
 }
 
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(xLASRTI_test_simple, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xLASRTI_test_simple, Number, types)
 {
 	xLASRTI_test_simple_impl(Number{});
 }
@@ -111,7 +110,7 @@ template<
 >
 void xLASRTI_test_shuffle_impl(Number)
 {
-	using Real = typename real_from<Number>::type;
+	using Real = typename tools::real_from<Number>::type;
 
 	// test at least up to 21 because for n<=20 insertion sort is used
 	for(auto n = std::size_t{0}; n <= 30; ++n)
@@ -125,7 +124,7 @@ void xLASRTI_test_shuffle_impl(Number)
 		std::shuffle(is.begin(), is.end(), gen);
 
 		// sort (increasing order)
-		auto ret = lapack::lasrti('I', n, xs.data(), is.data());
+		auto ret = lapack::xLASRTI('I', n, xs.data(), is.data());
 
 		BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -137,7 +136,7 @@ void xLASRTI_test_shuffle_impl(Number)
 
 
 		// call sort on sorted data
-		ret = lapack::lasrti('I', n, xs.data(), is.data());
+		ret = lapack::xLASRTI('I', n, xs.data(), is.data());
 
 		BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -149,7 +148,7 @@ void xLASRTI_test_shuffle_impl(Number)
 
 
 		// sort (decreasing order)
-		ret = lapack::lasrti('D', n, xs.data(), is.data());
+		ret = lapack::xLASRTI('D', n, xs.data(), is.data());
 
 		BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -163,7 +162,7 @@ void xLASRTI_test_shuffle_impl(Number)
 		// sort again after underlying array changed
 		std::shuffle(xs.begin(), xs.end(), gen);
 
-		ret = lapack::lasrti('D', n, xs.data(), is.data());
+		ret = lapack::xLASRTI('D', n, xs.data(), is.data());
 
 		BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -191,11 +190,12 @@ template<
 void xLASRTI_test_shuffle_impl(Number)
 {
 	// complex values cannot be sorted
+	BOOST_CHECK(true); // suppress Boost warnings
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(xLASRTI_test_shuffle, Number, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(xLASRTI_test_shuffle, Number, types)
 {
 	xLASRTI_test_shuffle_impl(Number{});
 }
 
-#endif
+
