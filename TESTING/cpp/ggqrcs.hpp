@@ -1421,7 +1421,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 	auto last_time_sec = std::time_t{0};
 	auto iteration = std::uintmax_t{0};
 
-	constexpr char FMT[] = "%7jd %13ju  %3zu %3zu %3zu %4zu  %20zu\n";
+	constexpr char FMT[] = "%7jd %13ju  %3zu %3zu %3zu %4zu  %20ju\n";
 	std::printf(
 		"%7s %13s  %3s %3s %3s %4s  %20s\n",
 		"time(s)", "iteration", "m", "n", "p", "rank", "seed"
