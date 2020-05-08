@@ -1,4 +1,4 @@
-find_package(Boost 1.48.0 QUIET COMPONENTS unit_test_framework timer)
+find_package(Boost 1.48.0 QUIET COMPONENTS unit_test_framework)
 
 if(NOT Boost_FOUND)
 	message("Boost libraries not found. C++ tests will not be build.")
@@ -6,50 +6,46 @@ if(NOT Boost_FOUND)
 endif(NOT Boost_FOUND)
 
 
+configure_file(config.hpp.in config.hpp @ONLY)
+
 
 # use C++14 because of a 'auto' parameter in a lambda
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra -Wall -std=c++14 -pedantic")
 
-add_definitions(-DBOOST_TEST_DYN_LINK)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${CMAKE_CURRENT_BINARY_DIR}) # for config.hpp
+
+add_library(test_main OBJECT main.cpp)
+target_compile_definitions(test_main PUBLIC -DBOOST_TEST_DYN_LINK)
+# target_include_directories does not seem to do anything
 include_directories(${Boost_INCLUDE_DIR})
-include_directories(${CMAKE_SOURCE_DIR}/LAPACKE/include)
 
 
-configure_file(config.hpp.in config.hpp @ONLY)
+
+function(add_cxx_test target source_file)
+	add_executable(
+		${target}
+		$<TARGET_OBJECTS:test_main>
+		${source_file}
+	)
+
+#	target_compile_definitions(${target} PRIVATE -DBOOST_TEST_DYN_LINK)
+	target_include_directories(
+		${target}
+		PRIVATE ${Boost_INCLUDE_DIR}
+		PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+		PRIVATE ${CMAKE_CURRENT_BINARY_DIR} # for config.hpp
+		PRIVATE ${CMAKE_SOURCE_DIR}/LAPACKE/include
+	)
+	target_link_libraries(
+		${target}
+		PRIVATE tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+	)
+
+	add_test(NAME ${target} COMMAND ${target})
+endfunction()
 
 
-add_executable(tools_tests main.cpp tools_tests.cpp)
-target_link_libraries(
-	tools_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-)
-add_test(NAME tools_tests COMMAND tools_tests)
-
-
-add_executable(xLASRTI_tests main.cpp xLASRTI_tests.cpp)
-target_link_libraries(
-	xLASRTI_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-)
-add_test(NAME xLASRTI_tests COMMAND xLASRTI_tests)
-
-
-add_executable(xLASRTR_tests main.cpp xLASRTR_tests.cpp)
-target_link_libraries(
-	xLASRTR_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-)
-add_test(NAME xLASRTR_tests COMMAND xLASRTR_tests)
-
-
-add_executable(xGGQRCS_tests main.cpp xGGQRCS_tests.cpp)
-target_link_libraries(
-	xGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-)
-add_test(NAME xGGQRCS_tests COMMAND xGGQRCS_tests)
-
-
-add_executable(xUNCSD2BY1_tests main.cpp xUNCSD2BY1_tests.cpp)
-target_link_libraries(
-	xUNCSD2BY1_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-)
-add_test(NAME xUNCSD2BY1_tests COMMAND xUNCSD2BY1_tests)
+add_cxx_test(tools_tests tools_tests.cpp)
+add_cxx_test(xGGQRCS_tests xGGQRCS_tests.cpp)
+add_cxx_test(xLASRTI_tests xLASRTI_tests.cpp)
+add_cxx_test(xLASRTR_tests xLASRTR_tests.cpp)
+add_cxx_test(xUNCSD2BY1_tests xUNCSD2BY1_tests.cpp)
