@@ -9,8 +9,8 @@ endif(NOT Boost_FOUND)
 configure_file(config.hpp.in config.hpp @ONLY)
 
 
-# use C++14 because of a 'auto' parameter in a lambda
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra -Wall -std=c++14 -pedantic")
+# use C++14 instead of C++11 because of a 'auto' parameter in a lambda
+add_compile_options(-Wextra -Wall -std=c++14 -pedantic)
 
 
 add_library(test_main OBJECT main.cpp)
@@ -27,7 +27,6 @@ function(add_cxx_test target source_file)
 		${source_file}
 	)
 
-#	target_compile_definitions(${target} PRIVATE -DBOOST_TEST_DYN_LINK)
 	target_include_directories(
 		${target}
 		PRIVATE ${Boost_INCLUDE_DIR}
