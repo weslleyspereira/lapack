@@ -174,11 +174,10 @@ Real measure_isometry(const ublas::matrix<Number, ublas::column_major>& U)
 	auto J = Matrix(n, n);
 	auto alpha = Number{1};
 	auto beta = Number{0};
-	auto ret = lapack::gemm(
+
+	lapack::gemm(
 		'C', 'N', n, n, m, alpha, &U(0,0), m, &U(0,0), m, beta, &J(0,0), n
 	);
-
-	BOOST_VERIFY( ret == 0 );
 
 	return ublas::norm_frobenius(J - I);
 }
@@ -295,11 +294,10 @@ ublas::matrix<Number, ublas::column_major> make_matrix_like(
 	auto alpha = Number{1};
 	auto beta = Number{0};
 	auto A = Matrix(m, n);
-	auto ret = lapack::gemm(
+
+	lapack::gemm(
 		'N', 'C', m, n, p, alpha, &US(0,0), m, &V(0,0), n, beta, &A(0,0), m
 	);
-
-	BOOST_VERIFY( ret == 0 );
 
 	return A;
 }
@@ -363,12 +361,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGEMM_test, Number, test_types)
 			auto D = Matrix(m, n);
 			auto alpha = Number{1};
 			auto beta = Number{0};
-			auto ret = lapack::gemm(
+
+			lapack::gemm(
 				'N', 'N', m, n, k,
 				alpha, &A(0,0), m, &B(0,0), k, beta, &D(0,0), m
 			);
-
-			BOOST_VERIFY( ret == 0 );
 
 			auto eps = std::numeric_limits<Real>::epsilon();
 			auto norm_C = ublas::norm_frobenius(C);

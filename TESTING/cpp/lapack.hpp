@@ -50,7 +50,7 @@
 
 extern "C"
 {
-	lapack_int sgemm_(
+	void sgemm_(
 		char* transa, char* transb,
 		lapack_int* m, lapack_int* n, lapack_int* k,
 		float* alpha,
@@ -61,7 +61,7 @@ extern "C"
 		std::size_t transa_len, std::size_t transb_len
 	);
 
-	lapack_int dgemm_(
+	void dgemm_(
 		char* transa, char* transb,
 		lapack_int* m, lapack_int* n, lapack_int* k,
 		double* alpha,
@@ -72,7 +72,7 @@ extern "C"
 		std::size_t transa_len, std::size_t transb_len
 	);
 
-	lapack_int cgemm_(
+	void cgemm_(
 		char* transa, char* transb,
 		lapack_int* m, lapack_int* n, lapack_int* k,
 		std::complex<float>* alpha,
@@ -83,7 +83,7 @@ extern "C"
 		std::size_t transa_len, std::size_t transb_len
 	);
 
-	lapack_int zgemm_(
+	void zgemm_(
 		char* transa, char* transb,
 		lapack_int* m, lapack_int* n, lapack_int* k,
 		std::complex<double>* alpha,
@@ -240,7 +240,7 @@ namespace lapack
 typedef lapack_int integer_t;
 
 
-inline integer_t gemm(
+inline void gemm(
 	char transa, char transb, integer_t m, integer_t n, integer_t k,
 	float alpha,
 	const float* A, integer_t lda,
@@ -248,7 +248,7 @@ inline integer_t gemm(
 	float beta,
 	const float* C, integer_t ldc)
 {
-	return sgemm_(
+	sgemm_(
 		&transa, &transb, &m, &n, &k,
 		&alpha,
 		A, &lda,
@@ -259,7 +259,7 @@ inline integer_t gemm(
 	);
 }
 
-inline integer_t gemm(
+inline void gemm(
 	char transa, char transb, integer_t m, integer_t n, integer_t k,
 	double alpha,
 	const double* A, integer_t lda,
@@ -267,7 +267,7 @@ inline integer_t gemm(
 	double beta,
 	const double* C, integer_t ldc)
 {
-	return dgemm_(
+	dgemm_(
 		&transa, &transb, &m, &n, &k,
 		&alpha,
 		A, &lda,
@@ -278,7 +278,7 @@ inline integer_t gemm(
 	);
 }
 
-inline integer_t gemm(
+inline void gemm(
 	char transa, char transb, integer_t m, integer_t n, integer_t k,
 	std::complex<float> alpha,
 	const std::complex<float>* A, integer_t lda,
@@ -286,7 +286,7 @@ inline integer_t gemm(
 	std::complex<float> beta,
 	const std::complex<float>* C, integer_t ldc)
 {
-	return cgemm_(
+	cgemm_(
 		&transa, &transb, &m, &n, &k,
 		&alpha,
 		A, &lda,
@@ -297,7 +297,7 @@ inline integer_t gemm(
 	);
 }
 
-inline integer_t gemm(
+inline void gemm(
 	char transa, char transb, integer_t m, integer_t n, integer_t k,
 	std::complex<double> alpha,
 	const std::complex<double>* A, integer_t lda,
@@ -305,7 +305,7 @@ inline integer_t gemm(
 	std::complex<double> beta,
 	const std::complex<double>* C, integer_t ldc)
 {
-	return zgemm_(
+	zgemm_(
 		&transa, &transb, &m, &n, &k,
 		&alpha,
 		A, &lda,

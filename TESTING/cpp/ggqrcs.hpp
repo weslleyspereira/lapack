@@ -187,18 +187,16 @@ ublas::matrix<Number, ublas::column_major> assemble_matrix(
 	auto alpha = Number{1};
 	auto beta = Number{0};
 	auto DRQt = Matrix(m, n, nan);
-	auto ret = lapack::gemm(
+
+	lapack::gemm(
 		'N', 'N', m, n, r, alpha, &D(0,0), m, &RQt(0,0), r, beta, &DRQt(0,0), m
 	);
 
-	BOOST_VERIFY( ret == 0 );
-
 	auto A = Matrix(m, n);
-	ret = lapack::gemm(
+
+	lapack::gemm(
 		'N', 'N', m, n, m, alpha, &U(0,0), m, &DRQt(0,0), m, beta, &A(0,0), m
 	);
-
-	BOOST_VERIFY( ret == 0 );
 
 	return A;
 }
@@ -222,11 +220,10 @@ ublas::matrix<Number, ublas::column_major> assemble_matrix(
 	auto RQt = Matrix(m, n);
 	auto alpha = Number{1};
 	auto beta = Number{0};
-	auto ret = lapack::gemm(
+
+	lapack::gemm(
 		'N', 'N', m, n, k, alpha, &R(0,0), m, &Qt(0,0), k, beta, &RQt(0,0), m
 	);
-
-	BOOST_VERIFY( ret == 0 );
 
 	return assemble_matrix(U, D, RQt);
 }
