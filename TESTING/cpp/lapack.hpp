@@ -28,17 +28,10 @@
 #ifndef LAPACK_TESTS_LAPACK_HPP
 #define LAPACK_TESTS_LAPACK_HPP
 
-#include <config.h>
-
-#ifdef USE_MKL
-# include <mkl.h>
-#else
-# include <lapacke.h>
-#endif
-
 #include <cctype>
 #include <cassert>
 #include <complex>
+# include <lapacke.h>
 
 
 /**
@@ -240,7 +233,7 @@ namespace lapack
 typedef lapack_int integer_t;
 
 
-inline void gemm(
+inline void xGEMM(
 	char transa, char transb, integer_t m, integer_t n, integer_t k,
 	float alpha,
 	const float* A, integer_t lda,
@@ -259,7 +252,7 @@ inline void gemm(
 	);
 }
 
-inline void gemm(
+inline void xGEMM(
 	char transa, char transb, integer_t m, integer_t n, integer_t k,
 	double alpha,
 	const double* A, integer_t lda,
@@ -278,7 +271,7 @@ inline void gemm(
 	);
 }
 
-inline void gemm(
+inline void xGEMM(
 	char transa, char transb, integer_t m, integer_t n, integer_t k,
 	std::complex<float> alpha,
 	const std::complex<float>* A, integer_t lda,
@@ -297,7 +290,7 @@ inline void gemm(
 	);
 }
 
-inline void gemm(
+inline void xGEMM(
 	char transa, char transb, integer_t m, integer_t n, integer_t k,
 	std::complex<double> alpha,
 	const std::complex<double>* A, integer_t lda,
@@ -318,7 +311,7 @@ inline void gemm(
 
 
 
-inline integer_t geqp3(
+inline integer_t xGEQP3(
 	integer_t m, integer_t n, float* A, integer_t lda,
 	integer_t* pivot, float* tau, float* work, integer_t lwork)
 {
@@ -331,7 +324,7 @@ inline integer_t geqp3(
 	return info;
 }
 
-inline integer_t geqp3(
+inline integer_t xGEQP3(
 	integer_t m, integer_t n, double* A, integer_t lda,
 	integer_t* pivot, double* tau, double* work, integer_t lwork)
 {
@@ -346,7 +339,7 @@ inline integer_t geqp3(
 
 
 
-inline integer_t geqrf(
+inline integer_t xGEQRF(
 	integer_t m, integer_t n, float* A, integer_t lda, float* p_tau,
 	float* p_work, integer_t lwork)
 {
@@ -355,7 +348,7 @@ inline integer_t geqrf(
 	return info;
 }
 
-inline integer_t geqrf(
+inline integer_t xGEQRF(
 	integer_t m, integer_t n, double* A, integer_t lda, double* p_tau,
 	double* p_work, integer_t lwork)
 {
@@ -364,7 +357,7 @@ inline integer_t geqrf(
 	return info;
 }
 
-inline integer_t geqrf(
+inline integer_t xGEQRF(
 	integer_t m, integer_t n, std::complex<float>* A, integer_t lda,
 	std::complex<float>* p_tau, std::complex<float>* p_work, integer_t lwork)
 {
@@ -379,7 +372,7 @@ inline integer_t geqrf(
 	return info;
 }
 
-inline integer_t geqrf(
+inline integer_t xGEQRF(
 	integer_t m, integer_t n, std::complex<double>* A, integer_t lda,
 	std::complex<double>* p_tau, std::complex<double>* p_work, integer_t lwork)
 {
@@ -397,7 +390,7 @@ inline integer_t geqrf(
 
 
 
-inline integer_t gerqf(
+inline integer_t xGERQF(
 	integer_t m, integer_t n, float* A, integer_t lda, float* p_tau,
 	float* p_work, integer_t lwork)
 {
@@ -406,7 +399,7 @@ inline integer_t gerqf(
 	return info;
 }
 
-inline integer_t gerqf(
+inline integer_t xGERQF(
 	integer_t m, integer_t n, double* A, integer_t lda, double* p_tau,
 	double* p_work, integer_t lwork)
 {
@@ -417,7 +410,7 @@ inline integer_t gerqf(
 
 
 
-inline integer_t gesvd(
+inline integer_t xGESVD(
 	char jobu, char jobvt, integer_t m, integer_t n, float* A, integer_t lda,
 	float* sigma, float* U, integer_t ldu, float* Vt, integer_t ldvt,
 	float* work, integer_t lwork)
@@ -433,7 +426,7 @@ inline integer_t gesvd(
 	return info;
 }
 
-inline integer_t gesvd(
+inline integer_t xGESVD(
 	char jobu, char jobvt, integer_t m, integer_t n, double* A, integer_t lda,
 	double* sigma, double* U, integer_t ldu, double* Vt, integer_t ldvt,
 	double* work, integer_t lwork)
@@ -451,7 +444,7 @@ inline integer_t gesvd(
 
 
 
-inline integer_t ggqrcs(
+inline integer_t xGGQRCS(
 	char jobu1, char jobu2, char jobx,
 	integer_t m, integer_t n, integer_t p, integer_t* p_l,
 	bool* p_swapped_p,
@@ -482,7 +475,7 @@ inline integer_t ggqrcs(
 	return info;
 }
 
-inline integer_t ggqrcs(
+inline integer_t xGGQRCS(
 	char jobu1, char jobu2, char jobx,
 	integer_t m, integer_t n, integer_t p, integer_t* p_l,
 	bool* p_swapped_p,
@@ -513,7 +506,7 @@ inline integer_t ggqrcs(
 	return info;
 }
 
-inline integer_t ggqrcs(
+inline integer_t xGGQRCS(
 	char jobu1, char jobu2, char jobx,
 	integer_t m, integer_t n, integer_t p, integer_t* p_l,
 	bool* p_swapped_p,
@@ -547,7 +540,7 @@ inline integer_t ggqrcs(
 	return info;
 }
 
-inline integer_t ggqrcs(
+inline integer_t xGGQRCS(
 	char jobu1, char jobu2, char jobx,
 	integer_t m, integer_t n, integer_t p, integer_t* p_l,
 	bool* p_swapped_p,
@@ -583,7 +576,7 @@ inline integer_t ggqrcs(
 
 
 
-inline integer_t ggsvd3(
+inline integer_t xGGSVD3(
 	char jobu, char jobv, char jobq, integer_t m, integer_t n, integer_t p,
 	integer_t* p_k, integer_t* p_l,
 	float* A, integer_t lda, float* B, integer_t ldb,
@@ -599,7 +592,7 @@ inline integer_t ggsvd3(
 	return info;
 }
 
-inline integer_t ggsvd3(
+inline integer_t xGGSVD3(
 	char jobu, char jobv, char jobq, integer_t m, integer_t n, integer_t p,
 	integer_t* p_k, integer_t* p_l,
 	double* A, integer_t lda, double* B, integer_t ldb,
@@ -615,7 +608,7 @@ inline integer_t ggsvd3(
 	return info;
 }
 
-inline integer_t ggsvd3(
+inline integer_t xGGSVD3(
 	char jobu, char jobv, char jobq,
 	integer_t m, integer_t n, integer_t p,
 	integer_t* p_k, integer_t* p_l,
@@ -647,7 +640,7 @@ inline integer_t ggsvd3(
 	return info;
 }
 
-inline integer_t ggsvd3(
+inline integer_t xGGSVD3(
 	char jobu, char jobv, char jobq,
 	integer_t m, integer_t n, integer_t p,
 	integer_t* p_k, integer_t* p_l,
@@ -681,7 +674,7 @@ inline integer_t ggsvd3(
 
 
 
-inline integer_t heevd(
+inline integer_t xHEEVD(
 	char jobz, char uplo, integer_t n, float* A, integer_t lda, float* lambda,
 	float* work, integer_t lwork, integer_t* iwork, integer_t liwork)
 {
@@ -694,7 +687,7 @@ inline integer_t heevd(
 	return info;
 }
 
-inline integer_t heevd(
+inline integer_t xHEEVD(
 	char jobz, char uplo, integer_t n, double* A, integer_t lda, double* lambda,
 	double* work, integer_t lwork, integer_t* iwork, integer_t liwork)
 {
@@ -709,7 +702,7 @@ inline integer_t heevd(
 
 
 
-inline integer_t hegv(
+inline integer_t xHEGV(
 	integer_t itype, char jobz, char uplo, integer_t n,
 	float* A, lapack_int lda, float* B, lapack_int ldb, float* lambda,
 	float* work, integer_t lwork)
@@ -721,7 +714,7 @@ inline integer_t hegv(
 	return info;
 }
 
-inline integer_t hegv(
+inline integer_t xHEGV(
 	integer_t itype, char jobz, char uplo, integer_t n,
 	double* A, lapack_int lda, double* B, lapack_int ldb, double* lambda,
 	double* work, integer_t lwork)
@@ -735,7 +728,7 @@ inline integer_t hegv(
 
 
 
-inline integer_t hegvd(
+inline integer_t xHEGVD(
 	integer_t itype, char jobz, char uplo, integer_t n,
 	float* A, lapack_int lda, float* B, lapack_int ldb, float* lambda,
 	float* work, integer_t lwork, integer_t* iwork, integer_t liwork)
@@ -747,7 +740,7 @@ inline integer_t hegvd(
 	return info;
 }
 
-inline integer_t hegvd(
+inline integer_t xHEGVD(
 	integer_t itype, char jobz, char uplo, integer_t n,
 	double* A, lapack_int lda, double* B, lapack_int ldb, double* lambda,
 	double* work, integer_t lwork, integer_t* iwork, integer_t liwork)
@@ -761,14 +754,14 @@ inline integer_t hegvd(
 
 
 
-inline void lacpy(
+inline void xLACPY(
 	char uplo, integer_t m, integer_t n,
 	const float* A, integer_t lda, float* B, integer_t ldb )
 {
 	slacpy_( &uplo, &m, &n, A, &lda, B, &ldb );
 }
 
-inline void lacpy(
+inline void xLACPY(
 	char uplo, integer_t m, integer_t n,
 	const double* A, integer_t lda, double* B, integer_t ldb )
 {
@@ -777,7 +770,7 @@ inline void lacpy(
 
 
 
-inline float lange(
+inline float xLANGE(
 	char norm, integer_t m, integer_t n,
 	const float* A, integer_t lda, float* work=nullptr)
 {
@@ -785,7 +778,7 @@ inline float lange(
 	return slange_(&norm, &m, &n, A, &lda, work);
 }
 
-inline double lange(
+inline double xLANGE(
 	char norm, integer_t m, integer_t n,
 	const double* A, integer_t lda, double* work=nullptr)
 {
@@ -795,7 +788,7 @@ inline double lange(
 
 
 
-inline float lanhe(
+inline float xLANHE(
 	char norm, char uplo, integer_t n,
 	const float* A, integer_t lda, float* work=nullptr)
 {
@@ -812,7 +805,7 @@ inline float lanhe(
 #endif
 }
 
-inline double lanhe(
+inline double xLANHE(
 	char norm, char uplo, integer_t n,
 	const double* A, integer_t lda, double* work=nullptr)
 {
@@ -831,7 +824,7 @@ inline double lanhe(
 
 
 
-inline void lapmr(
+inline void xLAPMR(
 	bool forward, integer_t m, integer_t n,
 	float* A, integer_t lda, integer_t* piv)
 {
@@ -839,7 +832,7 @@ inline void lapmr(
 	slapmr_( &iforward, &m, &n, A, &lda, piv );
 }
 
-inline void lapmr(
+inline void xLAPMR(
 	bool forward, integer_t m, integer_t n,
 	double* A, integer_t lda, integer_t* piv)
 {
@@ -847,7 +840,7 @@ inline void lapmr(
 	dlapmr_( &iforward, &m, &n, A, &lda, piv );
 }
 
-inline void lapmr(
+inline void xLAPMR(
 	bool forward, integer_t m, integer_t n,
 	std::complex<float>* A, integer_t lda, integer_t* piv)
 {
@@ -859,7 +852,7 @@ inline void lapmr(
 	);
 }
 
-inline void lapmr(
+inline void xLAPMR(
 	bool forward, integer_t m, integer_t n,
 	std::complex<double>* A, integer_t lda, integer_t* piv)
 {
@@ -873,7 +866,7 @@ inline void lapmr(
 
 
 
-inline void lapmt(
+inline void xLAPMT(
 	bool forward, integer_t m, integer_t n,
 	float* A, integer_t lda, integer_t* piv)
 {
@@ -881,7 +874,7 @@ inline void lapmt(
 	slapmt_( &iforward, &m, &n, A, &lda, piv );
 }
 
-inline void lapmt(
+inline void xLAPMT(
 	bool forward, integer_t m, integer_t n,
 	double* A, integer_t lda, integer_t* piv)
 {
@@ -891,7 +884,7 @@ inline void lapmt(
 
 
 
-inline integer_t lascl(
+inline integer_t xLASCL(
 	char type, integer_t kl, integer_t ku, float cfrom, float cto,
 	integer_t m, integer_t n, float* A, integer_t lda)
 {
@@ -900,7 +893,7 @@ inline integer_t lascl(
 	return info;
 }
 
-inline integer_t lascl(
+inline integer_t xLASCL(
 	char type, integer_t kl, integer_t ku, double cfrom, double cto,
 	integer_t m, integer_t n, double* A, integer_t lda)
 {
@@ -911,14 +904,14 @@ inline integer_t lascl(
 
 
 
-inline void laset(
+inline void xLASET(
 	char uplo, integer_t m, integer_t n,
 	float alpha, float beta, float* A, integer_t lda )
 {
 	slaset_( &uplo, &m, &n, &alpha, &beta, A, &lda );
 }
 
-inline void laset(
+inline void xLASET(
 	char uplo, integer_t m, integer_t n,
 	double alpha, double beta, double* A, integer_t lda )
 {
@@ -926,7 +919,7 @@ inline void laset(
 }
 
 
-inline integer_t lasrti(
+inline integer_t xLASRTI(
 	char order,
 	integer_t n,
 	float* x,
@@ -939,7 +932,7 @@ inline integer_t lasrti(
 	return info;
 }
 
-inline integer_t lasrti(
+inline integer_t xLASRTI(
 	char order,
 	integer_t n,
 	double* x,
@@ -954,7 +947,7 @@ inline integer_t lasrti(
 
 
 
-inline integer_t lasrtr(
+inline integer_t xLASRTR(
 	char order,
 	integer_t m,
 	integer_t n,
@@ -969,7 +962,7 @@ inline integer_t lasrtr(
 	return info;
 }
 
-inline integer_t lasrtr(
+inline integer_t xLASRTR(
 	char order,
 	integer_t m,
 	integer_t n,
@@ -984,7 +977,7 @@ inline integer_t lasrtr(
 	return info;
 }
 
-inline integer_t lasrtr(
+inline integer_t xLASRTR(
 	char order,
 	integer_t m,
 	integer_t n,
@@ -999,7 +992,7 @@ inline integer_t lasrtr(
 	return info;
 }
 
-inline integer_t lasrtr(
+inline integer_t xLASRTR(
 	char order,
 	integer_t m,
 	integer_t n,
@@ -1016,7 +1009,7 @@ inline integer_t lasrtr(
 
 
 
-inline integer_t pstrf(
+inline integer_t xPSTRF(
 	char uplo, integer_t n, float* A, integer_t lda,
 	integer_t* p_piv, integer_t* p_rank, float tol,
 	float* p_work)
@@ -1026,7 +1019,7 @@ inline integer_t pstrf(
 	return info;
 }
 
-inline integer_t pstrf(
+inline integer_t xPSTRF(
 	char uplo, integer_t n, double* A, integer_t lda,
 	integer_t* p_piv, integer_t* p_rank, double tol,
 	double* p_work)
@@ -1038,7 +1031,7 @@ inline integer_t pstrf(
 
 
 
-inline integer_t trcon(
+inline integer_t xTRCON(
 	char norm, char uplo, char diag, integer_t n, const float* A,
 	integer_t lda, float* p_rcond, float* p_work, integer_t* p_iwork)
 {
@@ -1048,7 +1041,7 @@ inline integer_t trcon(
 	return info;
 }
 
-inline integer_t trcon(
+inline integer_t xTRCON(
 	char norm, char uplo, char diag, integer_t n, const double* A,
 	integer_t lda, double* p_rcond, double* p_work, integer_t* p_iwork)
 {
@@ -1060,7 +1053,7 @@ inline integer_t trcon(
 
 
 
-inline integer_t uncsd2by1(
+inline integer_t xUNCSD2BY1(
 	char jobu1, char jobu2, char jobv1t,
 	integer_t m, integer_t p, integer_t q,
 	float* X11, integer_t ldx11,
@@ -1089,7 +1082,7 @@ inline integer_t uncsd2by1(
 	return info;
 }
 
-inline integer_t uncsd2by1(
+inline integer_t xUNCSD2BY1(
 	char jobu1, char jobu2, char jobv1t,
 	integer_t m, integer_t p, integer_t q,
 	double* X11, integer_t ldx11,
@@ -1118,7 +1111,7 @@ inline integer_t uncsd2by1(
 	return info;
 }
 
-inline integer_t uncsd2by1(
+inline integer_t xUNCSD2BY1(
 	char jobu1, char jobu2, char jobv1t,
 	integer_t m, integer_t p, integer_t q,
 	std::complex<float>* X11, integer_t ldx11,
@@ -1146,7 +1139,7 @@ inline integer_t uncsd2by1(
 	return info;
 }
 
-inline integer_t uncsd2by1(
+inline integer_t xUNCSD2BY1(
 	char jobu1, char jobu2, char jobv1t,
 	integer_t m, integer_t p, integer_t q,
 	std::complex<double>* X11, integer_t ldx11,
@@ -1177,7 +1170,7 @@ inline integer_t uncsd2by1(
 
 
 
-inline integer_t ungqr(
+inline integer_t xUNGQR(
 	integer_t m, integer_t n, integer_t k,
 	float* A, integer_t lda, const float* p_tau,
 	float* p_work, integer_t lwork)
@@ -1187,7 +1180,7 @@ inline integer_t ungqr(
 	return info;
 }
 
-inline integer_t ungqr(
+inline integer_t xUNGQR(
 	integer_t m, integer_t n, integer_t k,
 	double* A, integer_t lda, const double* p_tau,
 	double* p_work, integer_t lwork)
@@ -1200,7 +1193,7 @@ inline integer_t ungqr(
 	return info;
 }
 
-inline integer_t ungqr(
+inline integer_t xUNGQR(
 	integer_t m, integer_t n, integer_t k,
 	std::complex<float>* A, integer_t lda, const std::complex<float>* p_tau,
 	std::complex<float>* p_work, integer_t lwork)
@@ -1217,7 +1210,7 @@ inline integer_t ungqr(
 	return info;
 }
 
-inline integer_t ungqr(
+inline integer_t xUNGQR(
 	integer_t m, integer_t n, integer_t k,
 	std::complex<double>* A, integer_t lda, const std::complex<double>* p_tau,
 	std::complex<double>* p_work, integer_t lwork)
@@ -1236,7 +1229,7 @@ inline integer_t ungqr(
 
 
 
-inline integer_t ungrq(
+inline integer_t xUNGRQ(
 	integer_t m, integer_t n, integer_t k,
 	float* A, integer_t lda, float* tau,
 	float* work, integer_t lwork)
@@ -1246,7 +1239,7 @@ inline integer_t ungrq(
 	return info;
 }
 
-inline integer_t ungrq(
+inline integer_t xUNGRQ(
 	integer_t m, integer_t n, integer_t k,
 	double* A, integer_t lda, double* tau,
 	double* work, integer_t lwork)

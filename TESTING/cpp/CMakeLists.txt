@@ -12,74 +12,44 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra -Wall -std=c++14 -pedantic")
 
 add_definitions(-DBOOST_TEST_DYN_LINK)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR}) # for config.hpp
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/LAPACKE/include)
 
 
-if(BUILD_SINGLE)
-	add_executable(SGGQRCS_tests main.cpp sggqrcs.cpp)
-	target_link_libraries(
-		SGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-	)
-	add_test(NAME SGGQRCS_tests COMMAND SGGQRCS_tests)
+configure_file(config.hpp.in config.hpp @ONLY)
 
-	add_executable(SLASRTI_tests main.cpp slasrti.cpp)
-	target_link_libraries(
-		SLASRTI_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-	)
-	add_test(NAME SLASRTI_tests COMMAND SLASRTI_tests)
 
-	add_executable(SLASRTR_tests main.cpp slasrtr.cpp)
-	target_link_libraries(
-        SLASRTR_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-	)
-    add_test(NAME SLASRTR_tests COMMAND SLASRTR_tests)
-endif()
+add_executable(tools_tests main.cpp tools_tests.cpp)
+target_link_libraries(
+	tools_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+)
+add_test(NAME tools_tests COMMAND tools_tests)
 
-if(BUILD_DOUBLE)
-	add_executable(DGGQRCS_tests main.cpp dggqrcs.cpp)
-	target_link_libraries(
-		DGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-	)
-	add_test(NAME DGGQRCS_tests COMMAND DGGQRCS_tests)
 
-	add_executable(DLASRTI_tests main.cpp dlasrti.cpp)
-	target_link_libraries(
-		DLASRTI_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-	)
-	add_test(NAME DLASRTI_tests COMMAND DLASRTI_tests)
+add_executable(xLASRTI_tests main.cpp xLASRTI_tests.cpp)
+target_link_libraries(
+	xLASRTI_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+)
+add_test(NAME xLASRTI_tests COMMAND xLASRTI_tests)
 
-	add_executable(DLASRTR_tests main.cpp dlasrtr.cpp)
-	target_link_libraries(
-        DLASRTR_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-	)
-    add_test(NAME DLASRTR_tests COMMAND DLASRTR_tests)
-endif()
 
-if(BUILD_COMPLEX)
-	add_executable(CGGQRCS_tests main.cpp cggqrcs.cpp)
-	target_link_libraries(
-		CGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-	)
-	add_test(NAME CGGQRCS_tests COMMAND CGGQRCS_tests)
+add_executable(xLASRTR_tests main.cpp xLASRTR_tests.cpp)
+target_link_libraries(
+	xLASRTR_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+)
+add_test(NAME xLASRTR_tests COMMAND xLASRTR_tests)
 
-	add_executable(CLASRTR_tests main.cpp clasrtr.cpp)
-	target_link_libraries(
-        CLASRTR_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-	)
-    add_test(NAME CLASRTR_tests COMMAND CLASRTR_tests)
-endif()
 
-if(BUILD_COMPLEX16)
-	add_executable(ZGGQRCS_tests main.cpp zggqrcs.cpp)
-	target_link_libraries(
-		ZGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-	)
-	add_test(NAME ZGGQRCS_tests COMMAND ZGGQRCS_tests)
+add_executable(xGGQRCS_tests main.cpp xGGQRCS_tests.cpp)
+target_link_libraries(
+	xGGQRCS_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+)
+add_test(NAME xGGQRCS_tests COMMAND xGGQRCS_tests)
 
-	add_executable(ZLASRTR_tests main.cpp zlasrtr.cpp)
-	target_link_libraries(
-        ZLASRTR_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
-	)
-    add_test(NAME ZLASRTR_tests COMMAND ZLASRTR_tests)
-endif()
+
+add_executable(xUNCSD2BY1_tests main.cpp xUNCSD2BY1_tests.cpp)
+target_link_libraries(
+	xUNCSD2BY1_tests tmglib ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
+)
+add_test(NAME xUNCSD2BY1_tests COMMAND xUNCSD2BY1_tests)

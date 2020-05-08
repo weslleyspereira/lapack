@@ -28,23 +28,26 @@
 #ifndef LAPACK_TESTS_TOOLS_HPP
 #define LAPACK_TESTS_TOOLS_HPP
 
-#include <boost/numeric/ublas/banded.hpp>
-#include <boost/numeric/ublas/matrix.hpp>
-#include <boost/test/unit_test.hpp>
-
 #include "lapack.hpp"
 
 #include <algorithm>
+#include <boost/assert.hpp>
+#include <boost/numeric/ublas/banded.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
 #include <limits>
 #include <cmath>
 #include <random>
 #include <type_traits>
 
 
+namespace lapack {
+namespace tools
+{
 
 namespace ublas = boost::numeric::ublas;
 
 using Integer = lapack::integer_t;
+
 
 
 template<typename Number>
@@ -116,6 +119,16 @@ constexpr std::complex<Real> not_a_number<std::complex<Real>>::value;
 
 
 
+/**
+ * This function maps boolean values to LAPACK flags.
+ */
+char bool2lapackjob(bool p)
+{
+	return p ? 'Y' : 'N';
+}
+
+
+
 template<typename Real>
 struct UniformDistribution
 {
@@ -175,7 +188,7 @@ Real measure_isometry(const ublas::matrix<Number, ublas::column_major>& U)
 	auto alpha = Number{1};
 	auto beta = Number{0};
 
-	lapack::gemm(
+	lapack::xGEMM(
 		'C', 'N', n, n, m, alpha, &U(0,0), m, &U(0,0), m, beta, &J(0,0), n
 	);
 
@@ -248,11 +261,11 @@ ublas::matrix<Number, Storage> make_isometric_matrix_like(
 	auto k = std::max(m, n);
 	auto lwork = static_cast<Integer>(2 * k * k);
 	auto work = ublas::vector<Number>(lwork, nan);
-	auto ret = lapack::geqrf(m, n, &A(0,0), m, &tau(0), &work(0), lwork);
+	auto ret = lapack::xGEQRF(m, n, &A(0,0), m, &tau(0), &work(0), lwork);
 
 	BOOST_VERIFY( ret == 0 );
 
-	ret = lapack::ungqr(m, n, n, &A(0,0), m, &tau(0), &work(0), lwork);
+	ret = lapack::xUNGQR(m, n, n, &A(0,0), m, &tau(0), &work(0), lwork);
 
 	BOOST_VERIFY( ret == 0 );
 	BOOST_VERIFY( is_almost_isometric(A) );
@@ -295,83 +308,14 @@ ublas::matrix<Number, ublas::column_major> make_matrix_like(
 	auto beta = Number{0};
 	auto A = Matrix(m, n);
 
-	lapack::gemm(
+	lapack::xGEMM(
 		'N', 'C', m, n, p, alpha, &US(0,0), m, &V(0,0), n, beta, &A(0,0), m
 	);
 
 	return A;
 }
 
-
-
-BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_simple, Number, test_types)
-{
-	for(auto m = std::size_t{0}; m < 5; ++m)
-	{
-		for(auto n = std::size_t{0}; n <= m; ++n)
-		{
-			auto A = ublas::matrix<Number, ublas::column_major>(m, n, 0);
-
-			for(auto i = std::size_t{0}; i < n; ++i)
-			{
-				A(i,i) = std::pow(Number{-1}, Number(i));
-			}
-
-			BOOST_CHECK_EQUAL( 0, measure_isometry(A) );
-		}
-	}
 }
-
-
-BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_4by2, Number, test_types)
-{
-	auto A = ublas::matrix<Number, ublas::column_major>(4, 2);
-
-	// column-major order is required for this statement to work
-	std::iota( A.data().begin(), A.data().end(), 1u );
-
-	auto I = ublas::identity_matrix<Number>(2);
-	auto AT_A = ublas::matrix<Number>(2, 2);
-
-	AT_A(0,0) = 30; AT_A(0,1) = 70;
-	AT_A(1,0) = 70; AT_A(1,1) =174;
-
-	auto expected_result = ublas::norm_frobenius(AT_A - I);
-
-	BOOST_CHECK_EQUAL( expected_result, measure_isometry(A) );
-}
-
-
-BOOST_AUTO_TEST_CASE_TEMPLATE(xGEMM_test, Number, test_types)
-{
-	using Real = typename real_from<Number>::type;
-	using Matrix = ublas::matrix<Number, ublas::column_major>;
-
-	auto gen = std::minstd_rand();
-
-	for(auto m = std::size_t{2}; m < 100; m += 10)
-	{
-		for(auto n = std::size_t{1}; n <= 2*m; n += 10)
-		{
-			auto k = std::size_t{m/2};
-			auto cond = Real{1e3};
-			auto A = make_matrix_like(Number(), m, k, cond, &gen);
-			auto B = make_matrix_like(Number(), k, n, cond, &gen);
-			auto C = ublas::prod(A, B);
-			auto D = Matrix(m, n);
-			auto alpha = Number{1};
-			auto beta = Number{0};
-
-			lapack::gemm(
-				'N', 'N', m, n, k,
-				alpha, &A(0,0), m, &B(0,0), k, beta, &D(0,0), m
-			);
-
-			auto eps = std::numeric_limits<Real>::epsilon();
-			auto norm_C = ublas::norm_frobenius(C);
-			BOOST_CHECK_LE( ublas::norm_frobenius(C-D), m*n*norm_C * eps );
-		}
-	}
 }
 
 #endif
