@@ -48,3 +48,32 @@ add_cxx_test(xGGQRCS_tests xGGQRCS_tests.cpp)
 add_cxx_test(xLASRTI_tests xLASRTI_tests.cpp)
 add_cxx_test(xLASRTR_tests xLASRTR_tests.cpp)
 add_cxx_test(xUNCSD2BY1_tests xUNCSD2BY1_tests.cpp)
+
+
+#
+# Benchmarks
+#
+
+find_package(benchmark)
+
+if(NOT benchmark_FOUND)
+	message("Google Benchmark not found. Benchmarks will not be build.")
+	return()
+endif()
+
+
+add_executable(gsvd_benchmarks gsvd_benchmarks.cpp)
+target_include_directories(
+	gsvd_benchmarks
+	PRIVATE ${Boost_INCLUDE_DIR}
+	PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+	PRIVATE ${CMAKE_CURRENT_BINARY_DIR}
+	PRIVATE ${CMAKE_SOURCE_DIR}/LAPACKE/include
+)
+target_link_libraries(
+	gsvd_benchmarks
+	PRIVATE ${Boost_LIBRARIES}
+	PRIVATE tmglib
+	PRIVATE ${LAPACK_LIBRARIES}
+	PRIVATE benchmark::benchmark
+)
