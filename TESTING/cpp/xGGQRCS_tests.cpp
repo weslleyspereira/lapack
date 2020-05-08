@@ -954,13 +954,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, types)
 			{
 				auto svd3 = ggsvd3::Caller<Number>(p, n, m);
 
-				svd3.X = B; svd3.Y = A;
+				svd3.A = B; svd3.B = A;
 
 				auto ret = svd3();
 
 				BOOST_VERIFY(  ret == 0 );
 
-				auto R = ggsvd3::assemble_R(svd3.k, svd3.l, svd3.X, svd3.Y);
+				auto R = ggsvd3::assemble_R(svd3.k, svd3.l, svd3.A, svd3.B);
 				auto ds = ggsvd3::assemble_diagonals_like(
 					Number{}, p, m, svd3.k, svd3.l, svd3.alpha, svd3.beta
 				);

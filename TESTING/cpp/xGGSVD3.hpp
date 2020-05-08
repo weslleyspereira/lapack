@@ -32,6 +32,7 @@
 #include "tools.hpp"
 
 #include <algorithm>
+#include <boost/assert.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/vector.hpp>
@@ -65,8 +66,8 @@ struct Caller
 	Integer k = -1;
 	Integer l = -1;
 	std::size_t m, n, p;
-	std::size_t ldx, ldy, ldu1, ldu2, ldqt;
-	Matrix X, Y;
+	std::size_t lda, ldb, ldu1, ldu2, ldqt;
+	Matrix A, B;
 	Matrix U1, U2, Q;
 	Vector<Real> alpha;
 	Vector<Real> beta;
@@ -87,10 +88,10 @@ struct Caller
 		m(m_),
 		n(n_),
 		p(p_),
-		ldx(ldx_), ldy(ldy_),
+		lda(ldx_), ldb(ldy_),
 		ldu1(ldu1_), ldu2(ldu2_), ldqt(ldqt_),
-		X(ldx, n, 0),
-		Y(ldy, n, 0),
+		A(lda, n, 0),
+		B(ldb, n, 0),
 		U1(ldu1, m, tools::not_a_number<Number>::value),
 		U2(ldu2, p, tools::not_a_number<Number>::value),
 		Q(ldqt, n, tools::not_a_number<Number>::value),
@@ -101,8 +102,8 @@ struct Caller
 		BOOST_VERIFY( m > 0 );
 		BOOST_VERIFY( n > 0 );
 		BOOST_VERIFY( p > 0 );
-		BOOST_VERIFY( ldx >= m );
-		BOOST_VERIFY( ldy >= p );
+		BOOST_VERIFY( lda >= m );
+		BOOST_VERIFY( ldb >= p );
 		BOOST_VERIFY( ldu1 >= m );
 		BOOST_VERIFY( ldu2 >= p );
 		BOOST_VERIFY( ldqt >= n );
@@ -113,13 +114,13 @@ struct Caller
 		auto lwork_opt_f = nan;
 		auto ret = lapack::xGGSVD3(
 			'U', 'V', 'Q', m, n, p, &k, &l,
-			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
 			&lwork_opt_f, -1,
 			&iwork(0)
 		);
-		BOOST_REQUIRE_EQUAL( ret, 0 );
+		BOOST_VERIFY(ret == 0);
 
 		// resize workspace accordingly
 		auto lwork_opt = static_cast<std::size_t>(std::real(lwork_opt_f));
@@ -133,7 +134,7 @@ struct Caller
 	{
 		return lapack::xGGSVD3(
 			'U', 'V', 'Q', m, n, p, &k, &l,
-			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
 			&work(0), work.size(),
@@ -153,8 +154,8 @@ struct Caller<std::complex<Real>>
 	Integer k = -1;
 	Integer l = -1;
 	std::size_t m, n, p;
-	std::size_t ldx, ldy, ldu1, ldu2, ldqt;
-	Matrix X, Y;
+	std::size_t lda, ldb, ldu1, ldu2, ldqt;
+	Matrix A, B;
 	Matrix U1, U2, Q;
 	Vector<Real> alpha, beta;
 	Vector<Number> work;
@@ -174,10 +175,10 @@ struct Caller<std::complex<Real>>
 		m(m_),
 		n(n_),
 		p(p_),
-		ldx(ldx_), ldy(ldy_),
+		lda(ldx_), ldb(ldy_),
 		ldu1(ldu1_), ldu2(ldu2_), ldqt(ldqt_),
-		X(ldx, n, 0),
-		Y(ldy, n, 0),
+		A(lda, n, 0),
+		B(ldb, n, 0),
 		U1(ldu1, m, tools::not_a_number<Number>::value),
 		U2(ldu2, p, tools::not_a_number<Number>::value),
 		Q(ldqt, n, tools::not_a_number<Number>::value),
@@ -189,8 +190,8 @@ struct Caller<std::complex<Real>>
 		BOOST_VERIFY( m > 0 );
 		BOOST_VERIFY( n > 0 );
 		BOOST_VERIFY( p > 0 );
-		BOOST_VERIFY( ldx >= m );
-		BOOST_VERIFY( ldy >= p );
+		BOOST_VERIFY( lda >= m );
+		BOOST_VERIFY( ldb >= p );
 		BOOST_VERIFY( ldu1 >= m );
 		BOOST_VERIFY( ldu2 >= p );
 		BOOST_VERIFY( ldqt >= n );
@@ -200,7 +201,7 @@ struct Caller<std::complex<Real>>
 		auto lwork_opt_f = nan;
 		auto ret = lapack::xGGSVD3(
 			'U', 'V', 'Q', m, n, p, &k, &l,
-			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
 			&lwork_opt_f, -1, &rwork(0), &iwork(0) );
@@ -216,7 +217,7 @@ struct Caller<std::complex<Real>>
 	{
 		return lapack::xGGSVD3(
 			'U', 'V', 'Q', m, n, p, &k, &l,
-			&X(0, 0), ldx, &Y(0, 0), ldy,
+			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
 			&work(0), work.size(),
@@ -283,24 +284,24 @@ assemble_diagonals_like(
 template<typename T, class Storage>
 ublas::matrix<T, Storage> assemble_R(
 	std::size_t k, std::size_t l,
-	const ublas::matrix<T, Storage>& X, const ublas::matrix<T, Storage>& Y)
+	const ublas::matrix<T, Storage>& A, const ublas::matrix<T, Storage>& B)
 {
-	BOOST_VERIFY( X.size2() == Y.size2() );
+	BOOST_VERIFY( A.size2() == B.size2() );
 
 	using Matrix = ublas::matrix<T, Storage>;
 	using MatrixRange = ublas::matrix_range<Matrix>;
 	using ConstMatrixRange = ublas::matrix_range<const Matrix>;
 	using BandedAdaptor = ublas::banded_adaptor<ConstMatrixRange>;
 
-	auto m = X.size1();
-	auto n = X.size2();
+	auto m = A.size1();
+	auto n = A.size2();
 	auto r = k + l;
 	auto R = Matrix(r, n, 0);
 
 	if(r <= m)
 	{
 		MatrixRange R12 = ublas::subrange(R, 0, r, n-r, n);
-		ConstMatrixRange X1 = ublas::subrange(X, 0, r, n-r, n);
+		ConstMatrixRange X1 = ublas::subrange(A, 0, r, n-r, n);
 		BandedAdaptor X1U(X1, 0, r);
 
 		R12 = X1U;
@@ -310,8 +311,8 @@ ublas::matrix<T, Storage> assemble_R(
 		MatrixRange R12 = ublas::subrange(R, 0, m, n-r, n);
 		MatrixRange R22 = ublas::subrange(R, m, r, n+m-r, n);
 
-		ConstMatrixRange X1 = ublas::subrange(X, 0, m, n-r, n);
-		ConstMatrixRange Y1 = ublas::subrange(Y, m-k, l, n-r+m, n);
+		ConstMatrixRange X1 = ublas::subrange(A, 0, m, n-r, n);
+		ConstMatrixRange Y1 = ublas::subrange(B, m-k, l, n-r+m, n);
 
 		BandedAdaptor X1U(X1, 0, r);
 		BandedAdaptor Y1U(Y1, 0, r);
