@@ -184,7 +184,7 @@ struct Caller<std::complex<Real>>
 		Q(ldqt, n, tools::not_a_number<Number>::value),
 		alpha(n, tools::not_a_number<Real>::value),
 		beta(n, tools::not_a_number<Real>::value),
-		rwork(n, tools::not_a_number<Real>::value),
+		rwork(2*n, tools::not_a_number<Real>::value),
 		iwork(n, -1)
 	{
 		BOOST_VERIFY( m > 0 );
