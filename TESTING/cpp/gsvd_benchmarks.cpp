@@ -40,6 +40,7 @@
 #include <limits>
 #include <random>
 #include <utility>
+#include <vector>
 
 
 
@@ -56,6 +57,7 @@ template<template<typename Number> class Solver>
 void gsvd_benchmark(benchmark::State& state) {
 	using Number = float;
 	using Real = float;
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
 
 	auto real_nan = tools::not_a_number<Real>::value;
 	auto dummy = Number{};
@@ -63,40 +65,61 @@ void gsvd_benchmark(benchmark::State& state) {
 	auto n = static_cast<std::size_t>(state.range(1));
 	auto p = static_cast<std::size_t>(state.range(0));
 	auto r = std::min(m + p, n);
-	auto gen = std::mt19937();
-
-	gen.discard(1u << 17);
-
-	auto theta_dist = ggqrcs::ThetaDistribution<Real>(0u);
 	auto k = std::min( {m, p, r, m + p - r} );
-	auto theta = ublas::vector<Real>(k, real_nan);
 
-	std::generate(
-		theta.begin(), theta.end(),
-		[&gen, &theta_dist](){ return theta_dist(gen); }
-	);
-
+	auto gen = std::mt19937();
+	auto option_dist = std::uniform_int_distribution<unsigned>(0, 2);
 	auto min_log_cond_X = Real{0};
 	auto max_log_cond_X = static_cast<Real>(std::numeric_limits<Real>::digits/2);
 	auto log_cond_dist =
 		std::uniform_real_distribution<Real>(min_log_cond_X, max_log_cond_X);
-	auto log_cond_X = log_cond_dist(gen);
-	auto cond_X = std::pow(Real{2}, log_cond_X);
-	auto X = tools::make_matrix_like(dummy, r, n, cond_X, &gen);
-	auto U1 = tools::make_isometric_matrix_like(dummy, m, m, &gen);
-	auto U2 = tools::make_isometric_matrix_like(dummy, p, p, &gen);
-	auto ds = ggqrcs::assemble_diagonals_like(dummy, m, p, r, theta);
-	auto D1 = ds.first;
-	auto D2 = ds.second;
-	auto A = ggqrcs::assemble_matrix(U1, D1, X);
-	auto B = ggqrcs::assemble_matrix(U2, D2, X);
+
+	auto num_samples =
+		(std::size_t{1} << 16) /
+		static_cast<std::size_t>(
+			std::round(std::pow(Real(m + p + n) / Real{24}, Real{1.5}))
+		)
+	;
+	auto as = std::vector<Matrix>(num_samples);
+	auto bs = std::vector<Matrix>(num_samples);
+
+	gen.discard(1u << 17);
+
+	for(auto i = std::size_t{0}; i < num_samples; ++i)
+	{
+		auto option = option_dist(gen);
+		auto theta_dist = ggqrcs::ThetaDistribution<Real>(option);
+		auto theta = ublas::vector<Real>(k, real_nan);
+
+		std::generate(
+			theta.begin(), theta.end(),
+			[&gen, &theta_dist](){ return theta_dist(gen); }
+		);
+
+		auto log_cond_X = log_cond_dist(gen);
+		auto cond_X = std::pow(Real{2}, log_cond_X);
+		auto X = tools::make_matrix_like(dummy, r, n, cond_X, &gen);
+		auto U1 = tools::make_isometric_matrix_like(dummy, m, m, &gen);
+		auto U2 = tools::make_isometric_matrix_like(dummy, p, p, &gen);
+		auto ds = ggqrcs::assemble_diagonals_like(dummy, m, p, r, theta);
+		auto D1 = ds.first;
+		auto D2 = ds.second;
+		auto A = ggqrcs::assemble_matrix(U1, D1, X);
+		auto B = ggqrcs::assemble_matrix(U2, D2, X);
+
+		as[i] = A;
+		bs[i] = B;
+	}
+
 	auto solver = Solver<Number>(m, n, p);
+	auto it = std::size_t{0};
 
 	for(auto _ : state)
 	{
 		state.PauseTiming();
-		solver.A = A;
-		solver.B = B;
+		solver.A = as[it % num_samples];
+		solver.B = bs[it % num_samples];
+		++it;
 		state.ResumeTiming();
 
 		auto ret = solver();
