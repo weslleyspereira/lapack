@@ -54,14 +54,6 @@ add_cxx_test(xUNCSD2BY1_tests xUNCSD2BY1_tests.cpp)
 # Benchmarks
 #
 
-find_package(benchmark)
-
-if(NOT benchmark_FOUND)
-	message("Google Benchmark not found. Benchmarks will not be build.")
-	return()
-endif()
-
-
 add_executable(gsvd_benchmarks gsvd_benchmarks.cpp)
 target_include_directories(
 	gsvd_benchmarks
@@ -75,5 +67,4 @@ target_link_libraries(
 	PRIVATE ${Boost_LIBRARIES}
 	PRIVATE tmglib
 	PRIVATE ${LAPACK_LIBRARIES}
-	PRIVATE benchmark::benchmark
 )

@@ -26,6 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.hpp"
 #include "lapack.hpp"
 #include "tools.hpp"
 #include "xGGSVD3.hpp"
@@ -34,11 +35,13 @@
 #include <algorithm>
 #include <boost/assert.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
-#include <benchmark/benchmark.h>
 #include <cassert>
+#include <chrono>
+#include <complex>
 #include <cstdint>
 #include <limits>
 #include <random>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -49,94 +52,260 @@ namespace tools = lapack::tools;
 namespace ggqrcs = lapack::ggqrcs;
 namespace ggsvd3 = lapack::ggsvd3;
 
+
+struct CpuClock
+{
+	using duration = std::chrono::duration<std::intmax_t, std::nano>;
+	using time_point = std::chrono::time_point<CpuClock>;
+
+	static time_point now()
+	{
+		auto tp = timespec{-1, -1};
+		auto ret = clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &tp);
+
+		BOOST_VERIFY(ret == 0);
+
+		auto second2nanosecond = std::intmax_t{1000000000};
+		auto t =
+			second2nanosecond * std::intmax_t{tp.tv_sec}
+			+ std::intmax_t{tp.tv_nsec}
+		;
+
+		return time_point(duration(t));
+	}
+};
+
+
+
 using Integer = lapack::integer_t;
+using Clock = CpuClock;
+using Duration = std::chrono::duration<double, std::milli>;
 
 
 
-template<template<typename Number> class Solver>
-void gsvd_benchmark(benchmark::State& state) {
-	using Number = float;
-	using Real = float;
-	using Matrix = ublas::matrix<Number, ublas::column_major>;
+template<
+	typename Number,
+	class Prng,
+	class Matrix = ublas::matrix<Number, ublas::column_major>
+>
+std::pair<Matrix, Matrix> make_matrix_pair(
+	std::size_t m, std::size_t n, std::size_t p, Prng* p_gen
+)
+{
+	using Real = typename tools::real_from<Number>::type;
 
 	auto real_nan = tools::not_a_number<Real>::value;
 	auto dummy = Number{};
-	auto m = static_cast<std::size_t>(state.range(0));
-	auto n = static_cast<std::size_t>(state.range(1));
-	auto p = static_cast<std::size_t>(state.range(0));
+	auto& gen = *p_gen;
 	auto r = std::min(m + p, n);
 	auto k = std::min( {m, p, r, m + p - r} );
 
-	auto gen = std::mt19937();
 	auto option_dist = std::uniform_int_distribution<unsigned>(0, 2);
 	auto min_log_cond_X = Real{0};
 	auto max_log_cond_X = static_cast<Real>(std::numeric_limits<Real>::digits/2);
 	auto log_cond_dist =
 		std::uniform_real_distribution<Real>(min_log_cond_X, max_log_cond_X);
 
-	auto num_samples =
-		(std::size_t{1} << 16) /
-		static_cast<std::size_t>(
-			std::round(std::pow(Real(m + p + n) / Real{24}, Real{1.5}))
-		)
-	;
-	auto as = std::vector<Matrix>(num_samples);
-	auto bs = std::vector<Matrix>(num_samples);
+	auto option = option_dist(gen);
+	auto theta_dist = ggqrcs::ThetaDistribution<Real>(option);
+	auto theta = ublas::vector<Real>(k, real_nan);
 
-	gen.discard(1u << 17);
+	std::generate(
+		theta.begin(), theta.end(),
+		[&gen, &theta_dist](){ return theta_dist(gen); }
+	);
 
-	for(auto i = std::size_t{0}; i < num_samples; ++i)
-	{
-		auto option = option_dist(gen);
-		auto theta_dist = ggqrcs::ThetaDistribution<Real>(option);
-		auto theta = ublas::vector<Real>(k, real_nan);
+	auto log_cond_X = log_cond_dist(gen);
+	auto cond_X = std::pow(Real{2}, log_cond_X);
+	auto X = tools::make_matrix_like(dummy, r, n, cond_X, &gen);
+	auto U1 = tools::make_isometric_matrix_like(dummy, m, m, &gen);
+	auto U2 = tools::make_isometric_matrix_like(dummy, p, p, &gen);
+	auto ds = ggqrcs::assemble_diagonals_like(dummy, m, p, r, theta);
+	auto D1 = ds.first;
+	auto D2 = ds.second;
+	auto A = ggqrcs::assemble_matrix(U1, D1, X);
+	auto B = ggqrcs::assemble_matrix(U2, D2, X);
 
-		std::generate(
-			theta.begin(), theta.end(),
-			[&gen, &theta_dist](){ return theta_dist(gen); }
-		);
-
-		auto log_cond_X = log_cond_dist(gen);
-		auto cond_X = std::pow(Real{2}, log_cond_X);
-		auto X = tools::make_matrix_like(dummy, r, n, cond_X, &gen);
-		auto U1 = tools::make_isometric_matrix_like(dummy, m, m, &gen);
-		auto U2 = tools::make_isometric_matrix_like(dummy, p, p, &gen);
-		auto ds = ggqrcs::assemble_diagonals_like(dummy, m, p, r, theta);
-		auto D1 = ds.first;
-		auto D2 = ds.second;
-		auto A = ggqrcs::assemble_matrix(U1, D1, X);
-		auto B = ggqrcs::assemble_matrix(U2, D2, X);
-
-		as[i] = A;
-		bs[i] = B;
-	}
-
-	auto solver = Solver<Number>(m, n, p);
-	auto it = std::size_t{0};
-
-	for(auto _ : state)
-	{
-		state.PauseTiming();
-		solver.A = as[it % num_samples];
-		solver.B = bs[it % num_samples];
-		++it;
-		state.ResumeTiming();
-
-		auto ret = solver();
-
-		BOOST_VERIFY(ret == 0);
-	}
+	return std::make_pair(A, B);
 }
 
-template<typename T> using xGGQRCS = ggqrcs::Caller<T>;
-template<typename T> using xGGSVD3 = ggsvd3::Caller<T>;
 
-BENCHMARK_TEMPLATE(
-	gsvd_benchmark, xGGQRCS
-)->Ranges({{8, 512}, {8, 512}});
 
-BENCHMARK_TEMPLATE(
-	gsvd_benchmark, xGGSVD3
-)->Ranges({{8, 512}, {8, 512}});
+template<
+	typename Number,
+	template<typename T> class Solver,
+	class Prng
+>
+std::size_t compute_num_benchmark_runs(
+	std::size_t m, std::size_t n, std::size_t p, Prng* p_gen
+)
+{
+	auto t_min = std::chrono::seconds(1);
+	auto t = Duration(0);
+	auto ab = make_matrix_pair<Number>(m, n, p, p_gen);
+	auto num_runs = std::size_t{0};
 
-BENCHMARK_MAIN();
+	for(auto i = std::size_t{0}; i < 32 && t < t_min; ++i)
+	{
+		auto solver = Solver<Number>(m, n, p);
+
+		for(auto j = std::size_t{0}; j < std::size_t{1}<<i; ++j)
+		{
+			solver.A = ab.first;
+			solver.B = ab.second;
+			auto t_0 = Clock::now();
+			auto ret = solver();
+			auto t_1 = Clock::now();
+
+			t += t_1 - t_0;
+
+			BOOST_VERIFY(ret == 0);
+		}
+
+		num_runs += std::size_t{1} << i;
+	}
+
+	return num_runs;
+}
+
+
+
+template<
+	template<typename T> class Solver,
+	typename Number,
+	class Matrix = ublas::matrix<Number, ublas::column_major>
+>
+Duration run_gsvd(
+	Number,
+	const std::vector<Matrix>& as,
+	const std::vector<Matrix>& bs
+)
+{
+	BOOST_VERIFY(as.size() == bs.size());
+	BOOST_VERIFY(as.size() > 0);
+
+	auto m = as[0].size1();
+	auto n = as[0].size2();
+	auto p = bs[0].size1();
+	auto solver = Solver<Number>(m, n, p);
+	auto t = Duration(0);
+
+	for(auto i = std::size_t{0}; i < as.size(); ++i)
+	{
+		solver.A = as[i];
+		solver.B = bs[i];
+		auto t_0 = Clock::now();
+		auto ret = solver();
+		auto t_1 = Clock::now();
+
+		BOOST_VERIFY(ret == 0);
+
+		t += t_1 - t_0;
+	}
+
+	return t;
+}
+
+
+template<
+	typename Number,
+	template<typename T> class Solver
+>
+std::pair<std::size_t, Duration> benchmark_gsvd(
+	std::size_t m, std::size_t n, std::size_t p, unsigned seed
+)
+{
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
+
+	auto gen = std::mt19937(seed);
+
+	gen.discard(1ul << 17);
+
+	auto num_iterations_guess =
+		compute_num_benchmark_runs<Number, Solver>(m, n, p, &gen);
+	auto num_iterations = std::max(
+		num_iterations_guess+1, std::size_t{2}
+	);
+	auto as = std::vector<Matrix>(num_iterations);
+	auto bs = std::vector<Matrix>(num_iterations);
+
+	for(auto i = std::size_t{0}; i < num_iterations; ++i)
+	{
+		auto ab = make_matrix_pair<Number>(m, n, p, &gen);
+		as[i] = ab.first;
+		bs[i] = ab.second;
+	}
+
+	auto t = run_gsvd<ggqrcs::Caller>(Number{}, as, bs);
+
+	return std::make_pair(num_iterations, t);
+}
+
+
+
+template<
+	typename Number,
+	template<typename T> class Solver,
+	bool solver_built_p
+>
+struct BenchmarkGsvd
+{
+	static void run(
+		const std::string& solver,
+		std::size_t m, std::size_t n, std::size_t p, unsigned seed)
+	{
+		auto id = benchmark_gsvd<Number, Solver>(m,n,p,seed);
+		auto t = id.second.count();
+		auto t_per_sample = id.second.count() / id.first;
+
+		std::printf(
+			"%10s  %3zu %3zu %3zu  %8.2e  %6zu %8.2e\n",
+			solver.c_str(), m, n, p, t_per_sample, id.first, t);
+	}
+};
+
+template<
+	typename Number,
+	template<typename T> class Solver>
+struct BenchmarkGsvd<Number, Solver, false>
+{
+	static void run(
+		const std::string&,
+		std::size_t, std::size_t, std::size_t, unsigned)
+	{
+	}
+};
+
+
+
+int main()
+{
+	for(auto m = std::size_t{4}; m <= 16; m *= 4)
+	{
+		for(auto n = std::size_t{4}; n <= 16; n *= 4)
+		{
+			auto p = m;
+			auto seed = 1u;
+
+			BenchmarkGsvd<float, ggqrcs::Caller, lapack::BUILD_SINGLE_P>::run(
+				"SGGQRCS", m, n, p, seed);
+			BenchmarkGsvd<float, ggsvd3::Caller, lapack::BUILD_SINGLE_P>::run(
+				"SGGSVD3", m, n, p, seed);
+
+			BenchmarkGsvd<double, ggqrcs::Caller, lapack::BUILD_DOUBLE_P>::run(
+				"DGGQRCS", m, n, p, seed);
+			BenchmarkGsvd<double, ggsvd3::Caller, lapack::BUILD_DOUBLE_P>::run(
+				"DGGSVD3", m, n, p, seed);
+
+			BenchmarkGsvd<std::complex<float>, ggqrcs::Caller, lapack::BUILD_COMPLEX_P>::run(
+				"CGGQRCS", m, n, p, seed);
+			BenchmarkGsvd<std::complex<float>, ggsvd3::Caller, lapack::BUILD_COMPLEX_P>::run(
+				"CGGSVD3", m, n, p, seed);
+
+			BenchmarkGsvd<std::complex<double>, ggqrcs::Caller, lapack::BUILD_COMPLEX16_P>::run(
+				"ZGGQRCS", m, n, p, seed);
+			BenchmarkGsvd<std::complex<double>, ggsvd3::Caller, lapack::BUILD_COMPLEX16_P>::run(
+				"ZGGSVD3", m, n, p, seed);
+		}
+	}
+}
