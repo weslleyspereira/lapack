@@ -205,7 +205,7 @@ struct Caller<std::complex<Real>>
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
 			&lwork_opt_f, -1, &rwork(0), &iwork(0) );
-		BOOST_REQUIRE_EQUAL( ret, 0 );
+		BOOST_VERIFY(ret == 0);
 
 		auto lwork_opt = static_cast<std::size_t>(std::real(lwork_opt_f));
 
