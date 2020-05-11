@@ -97,7 +97,8 @@ std::pair<Matrix, Matrix> make_matrix_pair(
 	auto real_nan = tools::not_a_number<Real>::value;
 	auto dummy = Number{};
 	auto& gen = *p_gen;
-	auto r = std::min(m + p, n);
+	// maximize the number of singular values to compute
+	auto r = std::min(m, p);
 	auto k = std::min( {m, p, r, m + p - r} );
 
 	auto option_dist = std::uniform_int_distribution<unsigned>(0, 2);
@@ -224,7 +225,7 @@ std::pair<std::size_t, Duration> benchmark_gsvd(
 	auto num_iterations_guess =
 		compute_num_benchmark_runs<Number, Solver>(m, n, p, &gen);
 	auto num_iterations = std::max(
-		num_iterations_guess+1, std::size_t{2}
+		num_iterations_guess+1, std::size_t{100}
 	);
 	auto as = std::vector<Matrix>(num_iterations);
 	auto bs = std::vector<Matrix>(num_iterations);
@@ -280,9 +281,9 @@ struct BenchmarkGsvd<Number, Solver, false>
 
 int main()
 {
-	for(auto m = std::size_t{4}; m <= 16; m *= 4)
+	for(auto m = std::size_t{8}; m <= 128; m *= 2)
 	{
-		for(auto n = std::size_t{4}; n <= 16; n *= 4)
+		for(auto n = std::size_t{8}; n <= 128; n *= 2)
 		{
 			auto p = m;
 			auto seed = 1u;
