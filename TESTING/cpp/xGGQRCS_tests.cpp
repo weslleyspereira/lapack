@@ -149,9 +149,8 @@ BOOST_AUTO_TEST_CASE(xGGQRCS_test_matrix_scaling)
 
 
 
-BOOST_AUTO_TEST_CASE(
-	xGGQRCS_test_conditional_backward_stability,
-	* boost::unit_test::expected_failures(1))
+BOOST_TEST_DECORATOR(* boost::unit_test::expected_failures(1))
+BOOST_AUTO_TEST_CASE(xGGQRCS_test_conditional_backward_stability)
 {
 	using Number = float;
 	using Real = typename tools::real_from<Number>::type;
@@ -227,9 +226,8 @@ BOOST_AUTO_TEST_CASE(
 
 
 
-BOOST_AUTO_TEST_CASE(
-	xGGQRCS_test_singular_accuracy_vs_radians_accuracy,
-	* boost::unit_test::expected_failures(2))
+BOOST_TEST_DECORATOR(* boost::unit_test::expected_failures(1))
+BOOST_AUTO_TEST_CASE(xGGQRCS_test_singular_accuracy_vs_radians_accuracy)
 {
 	using Number = float;
 	using Real = typename tools::real_from<Number>::type;
