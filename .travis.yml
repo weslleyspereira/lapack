@@ -1,4 +1,4 @@
-language: c
+language: cpp
 dist: xenial
 group: travis_latest
 
@@ -10,6 +10,7 @@ addons:
   apt:
     packages:
     - gfortran
+    - libboost-all-dev
 
 matrix:
   include:
