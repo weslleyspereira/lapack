@@ -138,7 +138,9 @@ template<
 	class Prng
 >
 std::size_t compute_num_benchmark_runs(
-	std::size_t m, std::size_t n, std::size_t p, Prng* p_gen
+	std::size_t m, std::size_t n, std::size_t p,
+	bool compute_matrices_p,
+	Prng* p_gen
 )
 {
 	auto t_min = std::chrono::seconds(1);
@@ -148,7 +150,8 @@ std::size_t compute_num_benchmark_runs(
 
 	for(auto i = std::size_t{0}; i < 32 && t < t_min; ++i)
 	{
-		auto solver = Solver<Number>(m, n, p);
+		auto cm_p = compute_matrices_p;
+		auto solver = Solver<Number>(m, n, p, cm_p, cm_p, cm_p);
 
 		for(auto j = std::size_t{0}; j < std::size_t{1}<<i; ++j)
 		{
@@ -178,7 +181,8 @@ template<
 >
 Duration run_gsvd(
 	const std::vector<Matrix>& as,
-	const std::vector<Matrix>& bs
+	const std::vector<Matrix>& bs,
+	bool compute_matrices_p
 )
 {
 	BOOST_VERIFY(as.size() == bs.size());
@@ -187,7 +191,8 @@ Duration run_gsvd(
 	auto m = as[0].size1();
 	auto n = as[0].size2();
 	auto p = bs[0].size1();
-	auto solver = Solver<Number>(m, n, p);
+	auto cm_p = compute_matrices_p;
+	auto solver = Solver<Number>(m, n, p, cm_p, cm_p, cm_p);
 	auto t = Duration(0);
 
 	for(auto i = std::size_t{0}; i < as.size(); ++i)
@@ -212,7 +217,8 @@ template<
 	template<typename T> class Solver
 >
 std::pair<std::size_t, Duration> benchmark_gsvd(
-	std::size_t m, std::size_t n, std::size_t p, unsigned seed
+	std::size_t m, std::size_t n, std::size_t p, unsigned seed,
+	bool compute_matrices_p
 )
 {
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
@@ -221,8 +227,8 @@ std::pair<std::size_t, Duration> benchmark_gsvd(
 
 	gen.discard(1ul << 17);
 
-	auto num_iterations_guess =
-		compute_num_benchmark_runs<Number, Solver>(m, n, p, &gen);
+	auto num_iterations_guess = compute_num_benchmark_runs<Number, Solver>(
+		m, n, p, compute_matrices_p, &gen);
 	auto num_iterations = std::max(
 		num_iterations_guess+1, std::size_t{100}
 	);
@@ -236,7 +242,7 @@ std::pair<std::size_t, Duration> benchmark_gsvd(
 		bs[i] = ab.second;
 	}
 
-	auto t = run_gsvd<Number, Solver>(as, bs);
+	auto t = run_gsvd<Number, Solver>(as, bs, compute_matrices_p);
 
 	return std::make_pair(num_iterations, t);
 }
@@ -252,15 +258,20 @@ struct BenchmarkGsvd
 {
 	static void run(
 		const std::string& solver,
-		std::size_t m, std::size_t n, std::size_t p, unsigned seed)
+		std::size_t m, std::size_t n, std::size_t p, unsigned seed,
+		bool compute_matrices_p)
 	{
-		auto id = benchmark_gsvd<Number, Solver>(m,n,p,seed);
+		auto id =
+			benchmark_gsvd<Number, Solver>(m, n, p, seed, compute_matrices_p);
 		auto t = id.second.count();
 		auto t_per_sample = id.second.count() / id.first;
 
 		std::printf(
-			"%10s  %3zu %3zu %3zu  %8.2e  %6zu %8.2e\n",
-			solver.c_str(), m, n, p, t_per_sample, id.first, t);
+			"%8s  %9s  %3zu %3zu %3zu  %8.2e  %6zu %8.2e\n",
+			solver.c_str(),
+			compute_matrices_p ? "Y" : "N",
+			m, n, p, t_per_sample, id.first, t
+		);
 	}
 };
 
@@ -271,7 +282,7 @@ struct BenchmarkGsvd<Number, Solver, false>
 {
 	static void run(
 		const std::string&,
-		std::size_t, std::size_t, std::size_t, unsigned)
+		std::size_t, std::size_t, std::size_t, unsigned, bool)
 	{
 	}
 };
@@ -280,6 +291,12 @@ struct BenchmarkGsvd<Number, Solver, false>
 
 int main()
 {
+	// print column headings
+	std::printf(
+		"%8s  %9s  %3s %3s %3s  %8s  %6s %8s\n",
+		"Solver", "Matrices?", "m", "n", "p", "t_CPU/ms", "iters", "t_CPU_total/ms"
+	);
+
 	for(auto m = std::size_t{8}; m <= 128; m *= 2)
 	{
 		for(auto n = std::size_t{8}; n <= 128; n *= 2)
@@ -287,25 +304,62 @@ int main()
 			auto p = m;
 			auto seed = 1u;
 
-			BenchmarkGsvd<float, ggqrcs::Caller, lapack::BUILD_SINGLE_P>::run(
-				"SGGQRCS", m, n, p, seed);
-			BenchmarkGsvd<float, ggsvd3::Caller, lapack::BUILD_SINGLE_P>::run(
-				"SGGSVD3", m, n, p, seed);
+			BenchmarkGsvd<
+				float, ggqrcs::Caller, lapack::BUILD_SINGLE_P
+			>::run("SGGQRCS", m, n, p, seed, true);
+			BenchmarkGsvd<
+				float, ggsvd3::Caller, lapack::BUILD_SINGLE_P
+			>::run("SGGSVD3", m, n, p, seed, true);
 
-			BenchmarkGsvd<double, ggqrcs::Caller, lapack::BUILD_DOUBLE_P>::run(
-				"DGGQRCS", m, n, p, seed);
-			BenchmarkGsvd<double, ggsvd3::Caller, lapack::BUILD_DOUBLE_P>::run(
-				"DGGSVD3", m, n, p, seed);
+			BenchmarkGsvd<
+				double, ggqrcs::Caller, lapack::BUILD_DOUBLE_P
+			>::run("DGGQRCS", m, n, p, seed, true);
+			BenchmarkGsvd<
+				double, ggsvd3::Caller, lapack::BUILD_DOUBLE_P
+			>::run("DGGSVD3", m, n, p, seed, true);
 
-			BenchmarkGsvd<std::complex<float>, ggqrcs::Caller, lapack::BUILD_COMPLEX_P>::run(
-				"CGGQRCS", m, n, p, seed);
-			BenchmarkGsvd<std::complex<float>, ggsvd3::Caller, lapack::BUILD_COMPLEX_P>::run(
-				"CGGSVD3", m, n, p, seed);
+			BenchmarkGsvd<
+				std::complex<float>, ggqrcs::Caller, lapack::BUILD_COMPLEX_P
+			>::run("CGGQRCS", m, n, p, seed, true);
+			BenchmarkGsvd<
+				std::complex<float>, ggsvd3::Caller, lapack::BUILD_COMPLEX_P
+			>::run("CGGSVD3", m, n, p, seed, true);
 
-			BenchmarkGsvd<std::complex<double>, ggqrcs::Caller, lapack::BUILD_COMPLEX16_P>::run(
-				"ZGGQRCS", m, n, p, seed);
-			BenchmarkGsvd<std::complex<double>, ggsvd3::Caller, lapack::BUILD_COMPLEX16_P>::run(
-				"ZGGSVD3", m, n, p, seed);
+			BenchmarkGsvd<
+				std::complex<double>, ggqrcs::Caller, lapack::BUILD_COMPLEX16_P
+			>::run("ZGGQRCS", m, n, p, seed, true);
+			BenchmarkGsvd<
+				std::complex<double>, ggsvd3::Caller, lapack::BUILD_COMPLEX16_P
+			>::run("ZGGSVD3", m, n, p, seed, true);
+
+
+			BenchmarkGsvd<
+				float, ggqrcs::Caller, lapack::BUILD_SINGLE_P
+			>::run("SGGQRCS", m, n, p, seed, false);
+			BenchmarkGsvd<
+				float, ggsvd3::Caller, lapack::BUILD_SINGLE_P
+			>::run("SGGSVD3", m, n, p, seed, false);
+
+			BenchmarkGsvd<
+				double, ggqrcs::Caller, lapack::BUILD_DOUBLE_P
+			>::run("DGGQRCS", m, n, p, seed, false);
+			BenchmarkGsvd<
+				double, ggsvd3::Caller, lapack::BUILD_DOUBLE_P
+			>::run("DGGSVD3", m, n, p, seed, false);
+
+			BenchmarkGsvd<
+				std::complex<float>, ggqrcs::Caller, lapack::BUILD_COMPLEX_P
+			>::run("CGGQRCS", m, n, p, seed, false);
+			BenchmarkGsvd<
+				std::complex<float>, ggsvd3::Caller, lapack::BUILD_COMPLEX_P
+			>::run("CGGSVD3", m, n, p, seed, false);
+
+			BenchmarkGsvd<
+				std::complex<double>, ggqrcs::Caller, lapack::BUILD_COMPLEX16_P
+			>::run("ZGGQRCS", m, n, p, seed, false);
+			BenchmarkGsvd<
+				std::complex<double>, ggsvd3::Caller, lapack::BUILD_COMPLEX16_P
+			>::run("ZGGSVD3", m, n, p, seed, false);
 		}
 	}
 }
