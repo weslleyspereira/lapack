@@ -172,12 +172,11 @@ std::size_t compute_num_benchmark_runs(
 
 
 template<
-	template<typename T> class Solver,
 	typename Number,
+	template<typename T> class Solver,
 	class Matrix = ublas::matrix<Number, ublas::column_major>
 >
 Duration run_gsvd(
-	Number,
 	const std::vector<Matrix>& as,
 	const std::vector<Matrix>& bs
 )
@@ -237,7 +236,7 @@ std::pair<std::size_t, Duration> benchmark_gsvd(
 		bs[i] = ab.second;
 	}
 
-	auto t = run_gsvd<ggqrcs::Caller>(Number{}, as, bs);
+	auto t = run_gsvd<Number, Solver>(as, bs);
 
 	return std::make_pair(num_iterations, t);
 }
