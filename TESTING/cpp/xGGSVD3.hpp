@@ -63,6 +63,9 @@ struct Caller
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 	template<typename U> using Vector = ublas::vector<U>;
 
+	bool compute_u1_p = true;
+	bool compute_u2_p = true;
+	bool compute_q_p = true;
 	Integer k = -1;
 	Integer l = -1;
 	std::size_t m, n, p;
@@ -76,15 +79,27 @@ struct Caller
 
 
 	Caller(std::size_t m_, std::size_t n_, std::size_t p_)
-		: Caller(m_, n_, p_, m_, p_, m_, p_, n_)
+		: Caller(m_, n_, p_, m_, p_, m_, p_, n_, true, true, true)
 	{}
 
+	Caller(
+		std::size_t m_, std::size_t n_, std::size_t p_,
+		bool compute_u1_p_, bool compute_u2_p_, bool compute_q_p_
+	) : Caller(
+			m_, n_, p_, m_, p_, m_, p_, n_,
+			compute_u1_p_, compute_u2_p_, compute_q_p_
+		)
+	{}
 
 	Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
 		std::size_t ldx_, std::size_t ldy_,
-		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldqt_
+		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldqt_,
+		bool compute_u1_p_, bool compute_u2_p_, bool compute_q_p_
 	) :
+		compute_u1_p(compute_u1_p_),
+		compute_u2_p(compute_u2_p_),
+		compute_q_p(compute_q_p_),
 		m(m_),
 		n(n_),
 		p(p_),
@@ -111,9 +126,12 @@ struct Caller
 		auto nan = tools::not_a_number<Number>::value;
 
 		// query workspace size
+		auto jobu1 = compute_u1_p ? 'U' : 'N';
+		auto jobu2 = compute_u2_p ? 'V' : 'N';
+		auto jobq = compute_q_p ? 'Q' : 'N';
 		auto lwork_opt_f = nan;
 		auto ret = lapack::xGGSVD3(
-			'U', 'V', 'Q', m, n, p, &k, &l,
+			jobu1, jobu2, jobq, m, n, p, &k, &l,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
@@ -132,8 +150,11 @@ struct Caller
 
 	Integer operator() ()
 	{
+		auto jobu1 = compute_u1_p ? 'U' : 'N';
+		auto jobu2 = compute_u2_p ? 'V' : 'N';
+		auto jobq = compute_q_p ? 'Q' : 'N';
 		return lapack::xGGSVD3(
-			'U', 'V', 'Q', m, n, p, &k, &l,
+			jobu1, jobu2, jobq, m, n, p, &k, &l,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
@@ -151,6 +172,9 @@ struct Caller<std::complex<Real>>
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 	template<typename U> using Vector = ublas::vector<U>;
 
+	bool compute_u1_p = true;
+	bool compute_u2_p = true;
+	bool compute_q_p = true;
 	Integer k = -1;
 	Integer l = -1;
 	std::size_t m, n, p;
@@ -164,14 +188,27 @@ struct Caller<std::complex<Real>>
 
 
 	Caller(std::size_t m_, std::size_t n_, std::size_t p_)
-		: Caller(m_, n_, p_, m_, p_, m_, p_, n_)
+		: Caller(m_, n_, p_, m_, p_, m_, p_, n_, true, true, true)
+	{}
+
+	Caller(
+		std::size_t m_, std::size_t n_, std::size_t p_,
+		bool compute_u1_p_, bool compute_u2_p_, bool compute_q_p_
+	) : Caller(
+			m_, n_, p_, m_, p_, m_, p_, n_,
+			compute_u1_p_, compute_u2_p_, compute_q_p_
+		)
 	{}
 
 	Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
 		std::size_t ldx_, std::size_t ldy_,
-		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldqt_
+		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldqt_,
+		bool compute_u1_p_, bool compute_u2_p_, bool compute_q_p_
 	) :
+		compute_u1_p(compute_u1_p_),
+		compute_u2_p(compute_u2_p_),
+		compute_q_p(compute_q_p_),
 		m(m_),
 		n(n_),
 		p(p_),
@@ -197,10 +234,13 @@ struct Caller<std::complex<Real>>
 		BOOST_VERIFY( ldqt >= n );
 
 		// query workspace size
+		auto jobu1 = compute_u1_p ? 'U' : 'N';
+		auto jobu2 = compute_u2_p ? 'V' : 'N';
+		auto jobq = compute_q_p ? 'Q' : 'N';
 		auto nan = tools::not_a_number<Number>::value;
 		auto lwork_opt_f = nan;
 		auto ret = lapack::xGGSVD3(
-			'U', 'V', 'Q', m, n, p, &k, &l,
+			jobu1, jobu2, jobq, m, n, p, &k, &l,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
@@ -215,8 +255,11 @@ struct Caller<std::complex<Real>>
 
 	Integer operator() ()
 	{
+		auto jobu1 = compute_u1_p ? 'U' : 'N';
+		auto jobu2 = compute_u2_p ? 'V' : 'N';
+		auto jobq = compute_q_p ? 'Q' : 'N';
 		return lapack::xGGSVD3(
-			'U', 'V', 'Q', m, n, p, &k, &l,
+			jobu1, jobu2, jobq, m, n, p, &k, &l,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &Q(0, 0), ldqt,
