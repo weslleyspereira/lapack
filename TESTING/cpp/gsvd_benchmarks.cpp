@@ -41,6 +41,7 @@
 #include <limits>
 #include <random>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -175,10 +176,47 @@ std::size_t compute_num_benchmark_runs(
 
 template<
 	typename Number,
+	template<typename T> class Solver
+>
+struct workspace_size
+{
+	static std::size_t get(const Solver<Number>& solver)
+	{
+		return solver.work.size();
+	}
+};
+
+template<
+	typename Real,
+	template<typename T> class Solver
+>
+struct workspace_size<std::complex<Real>, Solver>
+{
+	static std::size_t get(const Solver<std::complex<Real>>& solver)
+	{
+		return solver.work.size() + solver.rwork.size();
+	}
+};
+
+template<
+	typename Number,
+	template<typename T> class Solver
+>
+std::size_t get_workspace_size(const Solver<Number>& solver)
+{
+	return workspace_size<Number, Solver>::get(solver);
+}
+
+
+/**
+ * @return Optimal workspace size, accumulated run-time.
+ */
+template<
+	typename Number,
 	template<typename T> class Solver,
 	class Matrix = ublas::matrix<Number, ublas::column_major>
 >
-Duration run_gsvd(
+std::pair<Duration, std::size_t> run_gsvd(
 	const std::vector<Matrix>& as,
 	const std::vector<Matrix>& bs,
 	bool compute_matrices_p
@@ -207,7 +245,7 @@ Duration run_gsvd(
 		t += t_1 - t_0;
 	}
 
-	return t;
+	return std::make_pair(t, get_workspace_size(solver));
 }
 
 
@@ -215,7 +253,7 @@ template<
 	typename Number,
 	template<typename T> class Solver
 >
-std::pair<std::size_t, Duration> benchmark_gsvd(
+std::tuple<std::size_t, Duration, std::size_t> benchmark_gsvd(
 	std::size_t m, std::size_t n, std::size_t p, unsigned seed,
 	bool compute_matrices_p
 )
@@ -241,9 +279,9 @@ std::pair<std::size_t, Duration> benchmark_gsvd(
 		bs[i] = ab.second;
 	}
 
-	auto t = run_gsvd<Number, Solver>(as, bs, compute_matrices_p);
+	auto ret = run_gsvd<Number, Solver>(as, bs, compute_matrices_p);
 
-	return std::make_pair(num_iterations, t);
+	return std::make_tuple(num_iterations, ret.first, ret.second);
 }
 
 
@@ -260,16 +298,21 @@ struct BenchmarkGsvd
 		std::size_t m, std::size_t n, std::size_t p, unsigned seed,
 		bool compute_matrices_p)
 	{
-		auto id =
+		auto idw =
 			benchmark_gsvd<Number, Solver>(m, n, p, seed, compute_matrices_p);
-		auto t = id.second.count();
-		auto t_per_sample = id.second.count() / id.first;
+		auto num_iterations = std::get<0>(idw);
+		auto duration = std::get<1>(idw);
+		auto workspace_size_bytes = std::get<2>(idw);
+		auto t_accumulated = duration.count();
+		auto t_per_sample = duration.count() / num_iterations;
 
 		std::printf(
-			"%8s  %9s  %3zu %3zu %3zu  %8.2e  %6zu %8.2e\n",
+			"%8s  %9s  %3zu %3zu %3zu  %9zu  %8.2e  %6zu %8.2e\n",
 			solver.c_str(),
 			compute_matrices_p ? "Y" : "N",
-			m, n, p, t_per_sample, id.first, t
+			m, n, p,
+			workspace_size_bytes,
+			t_per_sample, num_iterations, t_accumulated
 		);
 	}
 };
@@ -292,8 +335,10 @@ int main()
 {
 	// print column headings
 	std::printf(
-		"%8s  %9s  %3s %3s %3s  %8s  %6s %8s\n",
-		"Solver", "Matrices?", "m", "n", "p", "t_CPU/ms", "iters", "t_CPU_total/ms"
+		"%8s  %9s  %3s %3s %3s  %9s  %8s  %6s %8s\n",
+		"Solver", "Matrices?", "m", "n", "p",
+		"Workspace",
+		"t_CPU/ms", "Iters", "t_CPU_total/ms"
 	);
 
 	for(auto m = std::size_t{8}; m <= 128; m *= 2)
