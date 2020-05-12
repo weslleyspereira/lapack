@@ -37,7 +37,6 @@
 #include <boost/numeric/ublas/matrix.hpp>
 #include <cassert>
 #include <chrono>
-#include <complex>
 #include <cstdint>
 #include <limits>
 #include <random>
