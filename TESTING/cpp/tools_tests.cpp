@@ -39,9 +39,9 @@
 
 
 namespace ublas = boost::numeric::ublas;
+namespace tools = lapack::tools;
 
 using types = lapack::supported_types;
-using namespace lapack::tools;
 
 
 
@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_simple, Number, types)
 				A(i,i) = std::pow(Number{-1}, Number(i));
 			}
 
-			BOOST_CHECK_EQUAL( 0, measure_isometry(A) );
+			BOOST_CHECK_EQUAL( 0, tools::measure_isometry(A) );
 		}
 	}
 }
@@ -79,13 +79,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_4by2, Number, types)
 
 	auto expected_result = ublas::norm_frobenius(AT_A - I);
 
-	BOOST_CHECK_EQUAL( expected_result, measure_isometry(A) );
+	BOOST_CHECK_EQUAL( expected_result, tools::measure_isometry(A) );
 }
 
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(xGEMM_test, Number, types)
 {
-	using Real = typename real_from<Number>::type;
+	using Real = typename tools::real_from<Number>::type;
 	using Matrix = ublas::matrix<Number, ublas::column_major>;
 
 	auto gen = std::minstd_rand();
@@ -96,8 +96,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGEMM_test, Number, types)
 		{
 			auto k = std::size_t{m/2};
 			auto cond = Real{1e3};
-			auto A = make_matrix_like(Number(), m, k, cond, &gen);
-			auto B = make_matrix_like(Number(), k, n, cond, &gen);
+			auto A = tools::make_matrix_like(Number(), m, k, cond, &gen);
+			auto B = tools::make_matrix_like(Number(), k, n, cond, &gen);
 			auto C = ublas::prod(A, B);
 			auto D = Matrix(m, n);
 			auto alpha = Number{1};
