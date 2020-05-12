@@ -67,7 +67,7 @@ script:
   - ctest -D ExperimentalStart
   - ctest -D ExperimentalConfigure
   - ctest -D ExperimentalBuild -j2
-  - ctest -D ExperimentalTest --schedule-random -j2 --output-on-failure --timeout 100
+  - ctest -D ExperimentalTest --schedule-random -j2 --output-on-failure --timeout 600
   - ctest -D ExperimentalSubmit
   - make install -j2
   - if [[ "$CMAKE_BUILD_TYPE" == "Coverage" ]];
