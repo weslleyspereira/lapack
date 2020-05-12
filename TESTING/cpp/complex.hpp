@@ -26,56 +26,45 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LAPACK_TESTS_CONFIG_HPP
-#define LAPACK_TESTS_CONFIG_HPP
+#ifndef LAPACK_TESTS_COMPLEX_HPP
+#define LAPACK_TESTS_COMPLEX_HPP
 
-#include "complex.hpp"
+/**
+ * This file replaces the C++ standard library header `complex` because prior
+ * to GCC 8, this header included the C standard library header `complex.h`
+ * which causes various issues because of the predefined macros, e.g., the
+ * macro `I`. This in turn breaks compilation. Here is an example with GCC 7.5
+ * on Ubuntu 18 (Bionic):
+ *
+ * ```
+ * In file included from /usr/include/c++/7/complex.h:36:0,
+ *                 from /home/dev/lapack/LAPACKE/include/lapack.h:55,
+ *                 from /home/dev/lapack/LAPACKE/include/lapacke.h:37,
+ *                 from /home/dev/lapack/TESTING/cpp/lapack.hpp:34,
+ *                 from /home/dev/lapack/TESTING/cpp/xGGQRCS.hpp:31,
+ *                 from /home/dev/lapack/TESTING/cpp/xGGQRCS_tests.cpp:30:
+ * /usr/include/boost/operators.hpp:307:26: error: expected identifier before ‘(’ token
+ * template <class T, class I, class R, class B = operators_detail::empty_base<T> >
+ * ```
+ * The C++ code will be expanded by the preprocessor to
+ * ```
+ * template <class T, class (__extension__ 1.0iF), class R, class B = operators_detail::empty_base<T> >
+ * ```
+ *
+ * The sole purpose of this header is to prevent this problem.
+ *
+ * References:
+ * * GCC PR 82417 "Macros from C99 <complex.h> defined in C++11" (https://gcc.gnu.org/PR82417).
+ */
 
-#include <boost/mpl/list.hpp>
-#include <boost/mpl/push_front.hpp>
+#include <complex>
 
-#cmakedefine01 BUILD_SINGLE
-#cmakedefine01 BUILD_DOUBLE
-#cmakedefine01 BUILD_COMPLEX
-#cmakedefine01 BUILD_COMPLEX16
-
-
-namespace lapack {
-namespace impl
-{
-
-template<bool cond, class X, class List>
-struct push_if
-{
-	using type = List;
-};
-
-template<class X, class List>
-struct push_if<true, X, List>
-{
-	using type = typename boost::mpl::push_front<List, X>::type;
-};
-
-}
-
-constexpr bool BUILD_SINGLE_P = BUILD_SINGLE;
-constexpr bool BUILD_DOUBLE_P = BUILD_DOUBLE;
-constexpr bool BUILD_COMPLEX_P = BUILD_COMPLEX;
-constexpr bool BUILD_COMPLEX16_P = BUILD_COMPLEX16;
-
-using supported_types =
-	impl::push_if<BUILD_SINGLE_P, float,
-	impl::push_if<BUILD_DOUBLE_P, double,
-	impl::push_if<BUILD_COMPLEX_P, std::complex<float>,
-	impl::push_if<BUILD_COMPLEX16_P, std::complex<double>, boost::mpl::list<>
-	>::type>::type>::type>::type
-;
-
-}
-
-#undef BUILD_SINGLE
-#undef BUILD_DOUBLE
-#undef BUILD_COMPLEX
-#undef BUILD_COMPLEX16
+#if (defined __GNUC__ && __GNUC__ <= 7)
+// for some reason the fix does not work without explicitly including complex.h
+#include <complex.h>
+#undef complex
+#undef I
+#undef R
+#endif
 
 #endif

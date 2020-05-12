@@ -28,10 +28,11 @@
 #ifndef LAPACK_TESTS_LAPACK_HPP
 #define LAPACK_TESTS_LAPACK_HPP
 
+#include "complex.hpp"
+
 #include <cctype>
 #include <cassert>
-#include <complex>
-# include <lapacke.h>
+#include <lapacke.h>
 
 
 /**
