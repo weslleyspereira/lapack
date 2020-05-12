@@ -35,13 +35,13 @@
 #include <ctime>
 
 
-namespace ublas = boost::numeric::ublas;
-namespace tools = lapack::tools;
+namespace ggqrcs = lapack::ggqrcs;
 namespace ggsvd3 = lapack::ggsvd3;
+namespace tools = lapack::tools;
+namespace ublas = boost::numeric::ublas;
 
 using types = lapack::supported_types;
 
-using namespace lapack::ggqrcs;
 
 
 /**
@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_2x2, Number, types)
 	auto m = std::size_t{2};
 	auto n = std::size_t{2};
 	auto p = std::size_t{2};
-	auto caller = Caller<Number>(m, n, p);
+	auto caller = ggqrcs::Caller<Number>(m, n, p);
 	auto A = caller.A;
 	auto B = caller.B;
 
@@ -97,7 +97,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_1_2_3, Number, types)
 	auto m = std::size_t{1};
 	auto n = std::size_t{2};
 	auto p = std::size_t{3};
-	auto caller = Caller<Number>(m, n, p);
+	auto caller = ggqrcs::Caller<Number>(m, n, p);
 	auto A = caller.A;
 	auto B = caller.B;
 
@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(xGGQRCS_test_matrix_scaling)
 	auto m = std::size_t{1};
 	auto n = std::size_t{2};
 	auto p = std::size_t{10};
-	auto caller = Caller<Number>(m, n, p);
+	auto caller = ggqrcs::Caller<Number>(m, n, p);
 	auto A = caller.A;
 	auto B = caller.B;
 
@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE(xGGQRCS_test_conditional_backward_stability)
 
 	// compute GSVD of A, B and fail
 	{
-		auto caller = Caller<Number>(m, n, p);
+		auto caller = ggqrcs::Caller<Number>(m, n, p);
 
 		caller.A = A;
 		caller.B = B;
@@ -186,13 +186,13 @@ BOOST_AUTO_TEST_CASE(xGGQRCS_test_conditional_backward_stability)
 		check_results(ret, A, B, caller);
 
 		auto X = copy_X(caller);
-		auto ds = assemble_diagonals_like(
+		auto ds = ggqrcs::assemble_diagonals_like(
 			Number{}, m, p, r, caller.swapped_p, caller.alpha, caller.beta
 		);
 		auto& D1 = ds.first;
 		auto& D2 = ds.second;
-		auto almost_A = assemble_matrix(caller.U1, D1, X);
-		auto almost_B = assemble_matrix(caller.U2, D2, X);
+		auto almost_A = ggqrcs::assemble_matrix(caller.U1, D1, X);
+		auto almost_B = ggqrcs::assemble_matrix(caller.U2, D2, X);
 
 		BOOST_CHECK_LE(ublas::norm_frobenius(A - almost_A), tol(A));
 		// should fail
@@ -202,7 +202,7 @@ BOOST_AUTO_TEST_CASE(xGGQRCS_test_conditional_backward_stability)
 	// try again with norm(A) = norm(B)
 	{
 		auto w = std::ldexp(Real{1}, 12);
-		auto caller = Caller<Number>(m, n, p);
+		auto caller = ggqrcs::Caller<Number>(m, n, p);
 
 		caller.A = A;
 		caller.B = w * B;
@@ -211,13 +211,13 @@ BOOST_AUTO_TEST_CASE(xGGQRCS_test_conditional_backward_stability)
 		BOOST_REQUIRE_EQUAL( ret, 0 );
 
 		auto X = copy_X(caller);
-		auto ds = assemble_diagonals_like(
+		auto ds = ggqrcs::assemble_diagonals_like(
 			Number{}, m, p, r, caller.swapped_p, caller.alpha, caller.beta
 		);
 		auto& D1 = ds.first;
 		auto& D2 = ds.second;
-		auto almost_A = assemble_matrix(caller.U1, D1, X);
-		auto almost_B = assemble_matrix(caller.U2, D2, X);
+		auto almost_A = ggqrcs::assemble_matrix(caller.U1, D1, X);
+		auto almost_B = ggqrcs::assemble_matrix(caller.U2, D2, X);
 
 		BOOST_CHECK_LE(ublas::norm_frobenius(A - almost_A), tol(A));
 		BOOST_CHECK_LE(ublas::norm_frobenius(w*B - almost_B), tol(w*B));
@@ -247,7 +247,7 @@ BOOST_AUTO_TEST_CASE(xGGQRCS_test_singular_accuracy_vs_radians_accuracy)
 	B(0,0) = -7.727422714e-01;
 	B(1,0) = +6.347199082e-01;
 
-	auto caller = Caller<Number>(m, n, p);
+	auto caller = ggqrcs::Caller<Number>(m, n, p);
 
 	caller.A = A;
 	caller.B = B;
@@ -267,12 +267,12 @@ BOOST_AUTO_TEST_CASE(xGGQRCS_test_singular_accuracy_vs_radians_accuracy)
 	BOOST_CHECK_LE(std::abs(Real{1} - caller.beta(0)), eps);
 
 	auto X = copy_X(caller);
-	auto ds = assemble_diagonals_like(
+	auto ds = ggqrcs::assemble_diagonals_like(
 		Number{}, m, p, r, caller.swapped_p, caller.alpha, caller.beta);
 	auto& D1 = ds.first;
 	auto& D2 = ds.second;
-	auto almost_A = assemble_matrix(caller.U1, D1, X);
-	auto almost_B = assemble_matrix(caller.U2, D2, X);
+	auto almost_A = ggqrcs::assemble_matrix(caller.U1, D1, X);
+	auto almost_B = ggqrcs::assemble_matrix(caller.U2, D2, X);
 	auto tol = [] (const Matrix& a) {
 		return std::max(a.size1(), a.size2()) * ublas::norm_frobenius(a) * eps;
 	};
@@ -293,6 +293,7 @@ template<
 void xGGQRCS_test_zero_dimensions_impl(Number)
 {
 	using Real = typename tools::real_from<Number>::type;
+	using Integer = lapack::integer_t;
 
 	constexpr auto nan = tools::not_a_number<Number>::value;
 	constexpr auto real_nan = tools::not_a_number<Real>::value;
@@ -332,6 +333,7 @@ template<
 void xGGQRCS_test_zero_dimensions_impl(Number)
 {
 	using Real = typename tools::real_from<Number>::type;
+	using Integer = lapack::integer_t;
 
 	constexpr auto nan = tools::not_a_number<Number>::value;
 	constexpr auto real_nan = tools::not_a_number<Real>::value;
@@ -376,7 +378,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_zero_input, Number, types)
 	auto m = std::size_t{4};
 	auto n = std::size_t{3};
 	auto p = std::size_t{2};
-	auto caller = Caller<Number>(m, n, p);
+	auto caller = ggqrcs::Caller<Number>(m, n, p);
 	auto A = caller.A;
 	auto B = caller.B;
 
@@ -395,7 +397,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_rectangular_input, Number, types)
 		{
 			for(std::size_t p : {5, 11, 17})
 			{
-				auto caller = Caller<Number>(m, n, p);
+				auto caller = ggqrcs::Caller<Number>(m, n, p);
 				auto A = caller.A;
 				auto B = caller.B;
 
@@ -481,7 +483,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, types)
 
 				BOOST_VERIFY(k > 0);
 
-				auto theta_dist = ThetaDistribution<Real>(option);
+				auto theta_dist = ggqrcs::ThetaDistribution<Real>(option);
 				auto theta = ublas::vector<Real>(k, real_nan);
 
 				std::generate(
@@ -499,12 +501,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_singular_values, Number, types)
 				auto X = tools::make_matrix_like(dummy, r, n, cond_X, &gen);
 				auto U1 = tools::make_isometric_matrix_like(dummy, m, m, &gen);
 				auto U2 = tools::make_isometric_matrix_like(dummy, p, p, &gen);
-				auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
+				auto ds = ggqrcs::assemble_diagonals_like(dummy, m, p, r, theta);
 				auto D1 = ds.first;
 				auto D2 = ds.second;
-				auto A = assemble_matrix(U1, D1, X);
-				auto B = assemble_matrix(U2, D2, X);
-				auto caller = Caller<Number>(m, n, p);
+				auto A = ggqrcs::assemble_matrix(U1, D1, X);
+				auto B = ggqrcs::assemble_matrix(U2, D2, X);
+				auto caller = ggqrcs::Caller<Number>(m, n, p);
 
 				caller.A = A;
 				caller.B = B;
@@ -646,7 +648,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_row_scaling, Number, types)
 					B(i,j) *= kappa * i / (p-1) / row_norms_b(i);
 			}
 
-			auto caller = Caller<Number>(m, n, p);
+			auto caller = ggqrcs::Caller<Number>(m, n, p);
 
 			caller.A = A;
 			caller.B = B;
@@ -701,7 +703,7 @@ void xGGQRCS_test_random_impl(
 	gen.discard(1u << 17);
 
 	auto option = option_dist(gen);
-	auto theta_dist = ThetaDistribution<Real>(option);
+	auto theta_dist = ggqrcs::ThetaDistribution<Real>(option);
 	auto k = std::min( {m, p, r, m + p - r} );
 	auto theta = ublas::vector<Real>(k, real_nan);
 
@@ -719,18 +721,18 @@ void xGGQRCS_test_random_impl(
 	auto X = tools::make_matrix_like(dummy, r, n, cond_X, &gen);
 	auto U1 = tools::make_isometric_matrix_like(dummy, m, m, &gen);
 	auto U2 = tools::make_isometric_matrix_like(dummy, p, p, &gen);
-	auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
+	auto ds = ggqrcs::assemble_diagonals_like(dummy, m, p, r, theta);
 	auto D1 = ds.first;
 	auto D2 = ds.second;
-	auto A = assemble_matrix(U1, D1, X);
-	auto B = assemble_matrix(U2, D2, X);
+	auto A = ggqrcs::assemble_matrix(U1, D1, X);
+	auto B = ggqrcs::assemble_matrix(U2, D2, X);
 
 	// initialize caller
 	auto ldx = m + 11;
 	auto ldy = p + 5;
 	auto ldu1 = m + 13;
 	auto ldu2 = p + 7;
-	auto caller = Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2);
+	auto caller = ggqrcs::Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2);
 
 	ublas::subrange(caller.A, 0, m, 0, n) = A;
 	ublas::subrange(caller.B, 0, p, 0, n) = B;
@@ -908,7 +910,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, types)
 				auto R_Qt = tools::make_matrix_like(dummy, r, n, cond_R, &gen);
 				auto U1 = tools::make_isometric_matrix_like(dummy, m, m, &gen);
 				auto U2 = tools::make_isometric_matrix_like(dummy, p, p, &gen);
-				auto ds = assemble_diagonals_like(dummy, m, p, r, theta);
+				auto ds = ggqrcs::assemble_diagonals_like(dummy, m, p, r, theta);
 				auto D1 = ds.first;
 				auto D2 = ds.second;
 				auto option = option_dist(gen);
@@ -918,15 +920,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, types)
 					(option == 1) ? std::ldexp(Real{1}, -d/2) : real_nan
 				;
 
-				A = assemble_matrix(U1, D1, R_Qt);
-				B = w * assemble_matrix(U2, D2, R_Qt);
+				A = ggqrcs::assemble_matrix(U1, D1, R_Qt);
+				B = w * ggqrcs::assemble_matrix(U2, D2, R_Qt);
 
 				norm_A = ublas::norm_frobenius(A);
 				norm_B = ublas::norm_frobenius(B);
 			}
 
 			{
-				auto qrcs = Caller<Number>(m, n, p);
+				auto qrcs = ggqrcs::Caller<Number>(m, n, p);
 
 				qrcs.A = A; qrcs.B = B;
 
@@ -935,13 +937,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, types)
 				BOOST_VERIFY(ret == 0);
 
 				auto X = copy_X(qrcs);
-				auto ds = assemble_diagonals_like(
+				auto ds = ggqrcs::assemble_diagonals_like(
 					dummy, m, p, qrcs.rank, qrcs.swapped_p, qrcs.alpha, qrcs.beta
 				);
 				auto& D1 = ds.first;
 				auto& D2 = ds.second;
-				auto almost_A = assemble_matrix(qrcs.U1, D1, X);
-				auto almost_B = assemble_matrix(qrcs.U2, D2, X);
+				auto almost_A = ggqrcs::assemble_matrix(qrcs.U1, D1, X);
+				auto almost_B = ggqrcs::assemble_matrix(qrcs.U2, D2, X);
 
 				delta_A_qrcs[it] =
 					ublas::norm_frobenius(A-almost_A) / (eps * norm_A);
@@ -965,8 +967,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_xGGSVD3_comparison, Number, types)
 				auto& D1 = ds.first;
 				auto& D2 = ds.second;
 				auto Qt = Matrix(ublas::herm(svd3.Q));
-				auto almost_A = assemble_matrix(svd3.U2, D2, R, Qt);
-				auto almost_B = assemble_matrix(svd3.U1, D1, R, Qt);
+				auto almost_A = ggqrcs::assemble_matrix(svd3.U2, D2, R, Qt);
+				auto almost_B = ggqrcs::assemble_matrix(svd3.U1, D1, R, Qt);
 
 				delta_A_svd3[it] =
 					ublas::norm_frobenius(A-almost_A) / (eps * norm_A);
