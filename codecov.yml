@@ -1,0 +1,2 @@
+fixes:
+    - "lapack/src/::lapack/blob/" # fix file view
