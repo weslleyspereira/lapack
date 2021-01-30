@@ -70,6 +70,27 @@ extern "C" void xerbla_(
 }
 
 
+BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_1x2, Number, types)
+{
+	auto m = std::size_t{1};
+	auto n = std::size_t{2};
+	auto p = std::size_t{1};
+	auto caller = ggqrcs::Caller<Number>(m, n, p);
+	auto A = caller.A;
+	auto B = caller.B;
+
+	A(0,0) = 1; A(0,1) = +0;
+	B(0,0) = 1; B(0,1) = -1;
+
+	caller.A = A;
+	caller.B = B;
+
+	auto ret = caller();
+	check_results(ret, A, B, caller);
+
+	BOOST_CHECK_EQUAL( caller.rank, 2 );
+}
+
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_2x2, Number, types)
 {
