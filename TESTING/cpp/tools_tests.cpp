@@ -66,6 +66,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_simple, Number, types)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_4by2, Number, types)
 {
+	using Real = typename tools::real_from<Number>::type;
+
 	auto A = ublas::matrix<Number, ublas::column_major>(4, 2);
 
 	// column-major order is required for this statement to work
@@ -77,9 +79,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(measure_isometry_test_4by2, Number, types)
 	AT_A(0,0) = 30; AT_A(0,1) = 70;
 	AT_A(1,0) = 70; AT_A(1,1) =174;
 
-	auto expected_result = ublas::norm_frobenius(AT_A - I);
+	auto eps = std::numeric_limits<Real>::epsilon();
+	auto tol = Real{4} * eps;
+	// explicitly compute real values so that the BOOST_CHECK_EQUAL
+	// expression below compiles
+	auto result = Real{tools::measure_isometry(A)};
+	auto expected_result = Real{ublas::norm_frobenius(AT_A - I)};
 
-	BOOST_CHECK_EQUAL( expected_result, tools::measure_isometry(A) );
+	BOOST_CHECK_CLOSE( expected_result, result, tol );
 }
 
 
