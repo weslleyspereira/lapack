@@ -71,6 +71,18 @@ using supported_types =
 	>::type>::type>::type>::type
 ;
 
+using supported_real_types =
+	impl::push_if<BUILD_SINGLE_P, float,
+	impl::push_if<BUILD_DOUBLE_P, double, boost::mpl::list<>
+	>::type>::type
+;
+
+using supported_complex_types =
+	impl::push_if<BUILD_COMPLEX_P, std::complex<float>,
+	impl::push_if<BUILD_COMPLEX16_P, std::complex<double>, boost::mpl::list<>
+	>::type>::type
+;
+
 }
 
 #undef BUILD_SINGLE
