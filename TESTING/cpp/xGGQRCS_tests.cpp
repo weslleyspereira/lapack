@@ -136,6 +136,82 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_1_2_3, Number, types)
 
 
 
+BOOST_AUTO_TEST_CASE_TEMPLATE(
+	xGGQRCS_test_workspace_size_check, Number, lapack::supported_real_types
+)
+{
+	using Real = typename tools::real_from<Number>::type;
+
+	auto m = 17;
+	auto n = 13;
+	auto p = 8;
+	auto rank = -1;
+	auto swapped_p = false;
+	auto a = Real{1};
+	auto b = Real{2};
+	auto alpha = Real{-1};
+	auto beta = Real{-1};
+	auto u1 = Real{0};
+	auto u2 = Real{0};
+	auto work = Real{0};
+	auto iwork = -1;
+	auto info = lapack::xGGQRCS(
+		'Y', 'Y', 'Y', m, n, p, &rank, &swapped_p,
+		&a, m, &b, p,
+		&alpha, &beta,
+		&u1, m, &u2, p,
+		&work, 1, &iwork
+	);
+
+	BOOST_CHECK_EQUAL(info, -20);
+}
+
+
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(
+	xGGQRCS_test_workspace_size_check_complex, Number, lapack::supported_complex_types
+)
+{
+	using Real = typename tools::real_from<Number>::type;
+
+	auto m = 17;
+	auto n = 13;
+	auto p = 8;
+	auto rank = -1;
+	auto swapped_p = false;
+	auto a = Number{1};
+	auto b = Number{2};
+	auto alpha = Real{-1};
+	auto beta = Real{-1};
+	auto u1 = Number{0};
+	auto u2 = Number{0};
+	auto work = Number{0};
+	auto rwork = Real{0};
+	auto iwork = -1;
+	auto info = lapack::xGGQRCS(
+		'Y', 'Y', 'Y', m, n, p, &rank, &swapped_p,
+		&a, m, &b, p,
+		&alpha, &beta,
+		&u1, m, &u2, p,
+		&work, 1, &rwork, 1024, &iwork
+	);
+
+	BOOST_CHECK_EQUAL(info, -20);
+
+	info = lapack::xGGQRCS(
+		'Y', 'Y', 'Y', m, n, p, &rank, &swapped_p,
+		&a, m, &b, p,
+		&alpha, &beta,
+		&u1, m, &u2, p,
+		&work, 1024, &rwork, 1, &iwork
+	);
+
+	BOOST_CHECK_EQUAL(info, -22);
+}
+
+
+
+
 // this test does not pass with row sorting and no matrix scaling
 BOOST_AUTO_TEST_CASE(xGGQRCS_test_matrix_scaling)
 {
@@ -327,7 +403,8 @@ void xGGQRCS_test_zero_dimensions_impl(Number)
 	auto B = std::vector<Number>(ldb*1, nan);
 	auto alpha = std::vector<Real>(1, real_nan);
 	auto beta = std::vector<Real>(1, real_nan);
-	auto lwork = 1;
+	// this must be large enough not to trigger the workspace size check
+	auto lwork = 128;
 	auto work = std::vector<Number>(lwork, nan);
 	auto iwork = std::vector<Integer>(1, -1);
 	auto f = [&] (std::size_t m, std::size_t n, std::size_t p) {
