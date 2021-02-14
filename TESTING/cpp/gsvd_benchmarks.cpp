@@ -341,9 +341,9 @@ int main()
 		"t_CPU/ms", "Iters", "t_CPU_total/ms"
 	);
 
-	for(auto m = std::size_t{8}; m <= 128; m *= 2)
+	for(auto m = std::size_t{8}; m <= 128; m += (m == 8) ? 8 : 16)
 	{
-		for(auto n = std::size_t{8}; n <= 128; n *= 2)
+		for(auto n = std::size_t{8}; n <= 128; n += (n == 8) ? 8 : 16)
 		{
 			auto p = m;
 			auto seed = 1u;
