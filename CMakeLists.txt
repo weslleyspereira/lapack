@@ -89,6 +89,33 @@ configure_file(
 include(PreventInSourceBuilds)
 include(PreventInBuildInstalls)
 
+# Check if recursive flag exists
+include(CheckFortranCompilerFlag)
+check_fortran_compiler_flag("-recursive" _recursiveFlag)
+check_fortran_compiler_flag("-frecursive" _frecursiveFlag)
+check_fortran_compiler_flag("-Mrecursive" _MrecursiveFlag)
+
+# Add recursive flag
+if(_recursiveFlag)
+  string(REGEX MATCH "-recursive" output_test <string> "${CMAKE_Fortran_FLAGS}")
+  if(NOT output_test)
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -recursive"
+      CACHE STRING "Recursive flag must be set" FORCE)
+  endif()
+elseif(_frecursiveFlag)
+  string(REGEX MATCH "-frecursive" output_test <string> "${CMAKE_Fortran_FLAGS}")
+  if(NOT output_test) 
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -frecursive"
+    CACHE STRING "Recursive flag must be set" FORCE)
+  endif()
+elseif(_MrecursiveFlag)
+  string(REGEX MATCH "-Mrecursive" output_test <string> "${CMAKE_Fortran_FLAGS}")
+  if(NOT output_test)
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Mrecursive"
+    CACHE STRING "Recursive flag must be set" FORCE)
+  endif()
+endif()
+
 if(UNIX)
   if(CMAKE_Fortran_COMPILER_ID STREQUAL Intel)
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fp-model strict")
@@ -149,13 +176,14 @@ option(BUILD_TESTING "Build tests" ${_is_coverage_build})
 include(CTest)
 message(STATUS "Build tests: ${BUILD_TESTING}")
 
-# lapack_testing.py uses features from python 2.7 and greater
 if(BUILD_TESTING)
-  set(_msg "Looking for Python >= 2.7 needed for summary tests")
+  set(_msg "Looking for Python3 needed for summary tests")
   message(STATUS "${_msg}")
-  find_package(PythonInterp 2.7 QUIET)
-  if(PYTHONINTERP_FOUND)
-    message(STATUS "${_msg} - found (${PYTHON_VERSION_STRING})")
+  # find_package(PythonInterp 3) cannot be used because /usr/bin/python may be
+  # a Python2 interpreter.
+  find_program(PYTHON_EXECUTABLE python3)
+  if(PYTHON_EXECUTABLE)
+    message(STATUS "${_msg} - found")
   else()
     message(STATUS "${_msg} - not found (skipping summary tests)")
   endif()
