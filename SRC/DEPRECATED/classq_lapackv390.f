@@ -1,4 +1,4 @@
-*> \brief \b SLASSQ updates a sum of squares represented in scaled form.
+*> \brief \b CLASSQ updates a sum of squares represented in scaled form.
 *
 *  =========== DOCUMENTATION ===========
 *
@@ -6,26 +6,26 @@
 *            http://www.netlib.org/lapack/explore-html/
 *
 *> \htmlonly
-*> Download SLASSQ + dependencies
-*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/slassq.f">
+*> Download CLASSQ + dependencies
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/classq.f">
 *> [TGZ]</a>
-*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/slassq.f">
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/classq.f">
 *> [ZIP]</a>
-*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/slassq.f">
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/classq.f">
 *> [TXT]</a>
 *> \endhtmlonly
 *
 *  Definition:
 *  ===========
 *
-*       SUBROUTINE SLASSQ( N, X, INCX, SCALE, SUMSQ )
+*       SUBROUTINE CLASSQ( N, X, INCX, SCALE, SUMSQ )
 *
 *       .. Scalar Arguments ..
 *       INTEGER            INCX, N
 *       REAL               SCALE, SUMSQ
 *       ..
 *       .. Array Arguments ..
-*       REAL               X( * )
+*       COMPLEX            X( * )
 *       ..
 *
 *
@@ -34,19 +34,24 @@
 *>
 *> \verbatim
 *>
-*> SLASSQ  returns the values  scl  and  smsq  such that
+*> CLASSQ returns the values scl and ssq such that
 *>
-*>    ( scl**2 )*smsq = x( 1 )**2 +...+ x( n )**2 + ( scale**2 )*sumsq,
+*>    ( scl**2 )*ssq = x( 1 )**2 +...+ x( n )**2 + ( scale**2 )*sumsq,
 *>
-*> where  x( i ) = X( 1 + ( i - 1 )*INCX ). The value of  sumsq  is
-*> assumed to be non-negative and  scl  returns the value
+*> where x( i ) = abs( X( 1 + ( i - 1 )*INCX ) ). The value of sumsq is
+*> assumed to be at least unity and the value of ssq will then satisfy
 *>
-*>    scl = max( scale, abs( x( i ) ) ).
+*>    1.0 <= ssq <= ( sumsq + 2*n ).
 *>
-*> scale and sumsq must be supplied in SCALE and SUMSQ and
-*> scl and smsq are overwritten on SCALE and SUMSQ respectively.
+*> scale is assumed to be non-negative and scl returns the value
 *>
-*> The routine makes only one pass through the vector x.
+*>    scl = max( scale, abs( real( x( i ) ) ), abs( aimag( x( i ) ) ) ),
+*>           i
+*>
+*> scale and sumsq must be supplied in SCALE and SUMSQ respectively.
+*> SCALE and SUMSQ are overwritten by scl and ssq respectively.
+*>
+*> The routine makes only one pass through the vector X.
 *> \endverbatim
 *
 *  Arguments:
@@ -60,8 +65,8 @@
 *>
 *> \param[in] X
 *> \verbatim
-*>          X is REAL array, dimension (1+(N-1)*INCX)
-*>          The vector for which a scaled sum of squares is computed.
+*>          X is COMPLEX array, dimension (1+(N-1)*INCX)
+*>          The vector x as described above.
 *>             x( i )  = X( 1 + ( i - 1 )*INCX ), 1 <= i <= n.
 *> \endverbatim
 *>
@@ -76,16 +81,14 @@
 *> \verbatim
 *>          SCALE is REAL
 *>          On entry, the value  scale  in the equation above.
-*>          On exit, SCALE is overwritten with  scl , the scaling factor
-*>          for the sum of squares.
+*>          On exit, SCALE is overwritten with the value  scl .
 *> \endverbatim
 *>
 *> \param[in,out] SUMSQ
 *> \verbatim
 *>          SUMSQ is REAL
 *>          On entry, the value  sumsq  in the equation above.
-*>          On exit, SUMSQ is overwritten with  smsq , the basic sum of
-*>          squares from which  scl  has been factored out.
+*>          On exit, SUMSQ is overwritten with the value  ssq .
 *> \endverbatim
 *
 *  Authors:
@@ -98,10 +101,13 @@
 *
 *> \date December 2016
 *
-*> \ingroup OTHERauxiliary
+*> This implementation of CLASSQ has been deprecated with LAPACKv3.10.
+*> A better version of CLASSQ was contributed by Ed Anderson and released in 3.10.
+*
+*> \ingroup complexOTHERauxiliary
 *
 *  =====================================================================
-      SUBROUTINE SLASSQ( N, X, INCX, SCALE, SUMSQ )
+      SUBROUTINE CLASSQ( N, X, INCX, SCALE, SUMSQ )
 *
 *  -- LAPACK auxiliary routine (version 3.7.0) --
 *  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -113,7 +119,7 @@
       REAL               SCALE, SUMSQ
 *     ..
 *     .. Array Arguments ..
-      REAL               X( * )
+      COMPLEX            X( * )
 *     ..
 *
 * =====================================================================
@@ -124,32 +130,42 @@
 *     ..
 *     .. Local Scalars ..
       INTEGER            IX
-      REAL               ABSXI
+      REAL               TEMP1
 *     ..
 *     .. External Functions ..
       LOGICAL            SISNAN
       EXTERNAL           SISNAN
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS
+      INTRINSIC          ABS, AIMAG, REAL
 *     ..
 *     .. Executable Statements ..
 *
       IF( N.GT.0 ) THEN
          DO 10 IX = 1, 1 + ( N-1 )*INCX, INCX
-            ABSXI = ABS( X( IX ) )
-            IF( ABSXI.GT.ZERO.OR.SISNAN( ABSXI ) ) THEN
-               IF( SCALE.LT.ABSXI ) THEN
-                  SUMSQ = 1 + SUMSQ*( SCALE / ABSXI )**2
-                  SCALE = ABSXI
+            TEMP1 = ABS( REAL( X( IX ) ) )
+            IF( TEMP1.GT.ZERO.OR.SISNAN( TEMP1 ) ) THEN
+               IF( SCALE.LT.TEMP1 ) THEN
+                  SUMSQ = 1 + SUMSQ*( SCALE / TEMP1 )**2
+                  SCALE = TEMP1
                ELSE
-                  SUMSQ = SUMSQ + ( ABSXI / SCALE )**2
+                  SUMSQ = SUMSQ + ( TEMP1 / SCALE )**2
+               END IF
+            END IF
+            TEMP1 = ABS( AIMAG( X( IX ) ) )
+            IF( TEMP1.GT.ZERO.OR.SISNAN( TEMP1 ) ) THEN
+               IF( SCALE.LT.TEMP1 .OR. SISNAN( TEMP1 ) ) THEN
+                  SUMSQ = 1 + SUMSQ*( SCALE / TEMP1 )**2
+                  SCALE = TEMP1
+               ELSE
+                  SUMSQ = SUMSQ + ( TEMP1 / SCALE )**2
                END IF
             END IF
    10    CONTINUE
       END IF
+*
       RETURN
 *
-*     End of SLASSQ
+*     End of CLASSQ
 *
       END

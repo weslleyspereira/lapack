@@ -1,4 +1,4 @@
-*> \brief \b DLASSQ updates a sum of squares represented in scaled form.
+*> \brief \b ZLASSQ updates a sum of squares represented in scaled form.
 *
 *  =========== DOCUMENTATION ===========
 *
@@ -6,26 +6,26 @@
 *            http://www.netlib.org/lapack/explore-html/
 *
 *> \htmlonly
-*> Download DLASSQ + dependencies
-*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlassq.f">
+*> Download ZLASSQ + dependencies
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/zlassq.f">
 *> [TGZ]</a>
-*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlassq.f">
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/zlassq.f">
 *> [ZIP]</a>
-*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlassq.f">
+*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/zlassq.f">
 *> [TXT]</a>
 *> \endhtmlonly
 *
 *  Definition:
 *  ===========
 *
-*       SUBROUTINE DLASSQ( N, X, INCX, SCALE, SUMSQ )
+*       SUBROUTINE ZLASSQ( N, X, INCX, SCALE, SUMSQ )
 *
 *       .. Scalar Arguments ..
 *       INTEGER            INCX, N
 *       DOUBLE PRECISION   SCALE, SUMSQ
 *       ..
 *       .. Array Arguments ..
-*       DOUBLE PRECISION   X( * )
+*       COMPLEX*16         X( * )
 *       ..
 *
 *
@@ -34,19 +34,24 @@
 *>
 *> \verbatim
 *>
-*> DLASSQ  returns the values  scl  and  smsq  such that
+*> ZLASSQ returns the values scl and ssq such that
 *>
-*>    ( scl**2 )*smsq = x( 1 )**2 +...+ x( n )**2 + ( scale**2 )*sumsq,
+*>    ( scl**2 )*ssq = x( 1 )**2 +...+ x( n )**2 + ( scale**2 )*sumsq,
 *>
-*> where  x( i ) = X( 1 + ( i - 1 )*INCX ). The value of  sumsq  is
-*> assumed to be non-negative and  scl  returns the value
+*> where x( i ) = abs( X( 1 + ( i - 1 )*INCX ) ). The value of sumsq is
+*> assumed to be at least unity and the value of ssq will then satisfy
 *>
-*>    scl = max( scale, abs( x( i ) ) ).
+*>    1.0 <= ssq <= ( sumsq + 2*n ).
 *>
-*> scale and sumsq must be supplied in SCALE and SUMSQ and
-*> scl and smsq are overwritten on SCALE and SUMSQ respectively.
+*> scale is assumed to be non-negative and scl returns the value
 *>
-*> The routine makes only one pass through the vector x.
+*>    scl = max( scale, abs( real( x( i ) ) ), abs( aimag( x( i ) ) ) ),
+*>           i
+*>
+*> scale and sumsq must be supplied in SCALE and SUMSQ respectively.
+*> SCALE and SUMSQ are overwritten by scl and ssq respectively.
+*>
+*> The routine makes only one pass through the vector X.
 *> \endverbatim
 *
 *  Arguments:
@@ -60,8 +65,8 @@
 *>
 *> \param[in] X
 *> \verbatim
-*>          X is DOUBLE PRECISION array, dimension (1+(N-1)*INCX)
-*>          The vector for which a scaled sum of squares is computed.
+*>          X is COMPLEX*16 array, dimension (1+(N-1)*INCX)
+*>          The vector x as described above.
 *>             x( i )  = X( 1 + ( i - 1 )*INCX ), 1 <= i <= n.
 *> \endverbatim
 *>
@@ -76,16 +81,14 @@
 *> \verbatim
 *>          SCALE is DOUBLE PRECISION
 *>          On entry, the value  scale  in the equation above.
-*>          On exit, SCALE is overwritten with  scl , the scaling factor
-*>          for the sum of squares.
+*>          On exit, SCALE is overwritten with the value  scl .
 *> \endverbatim
 *>
 *> \param[in,out] SUMSQ
 *> \verbatim
 *>          SUMSQ is DOUBLE PRECISION
 *>          On entry, the value  sumsq  in the equation above.
-*>          On exit, SUMSQ is overwritten with  smsq , the basic sum of
-*>          squares from which  scl  has been factored out.
+*>          On exit, SUMSQ is overwritten with the value  ssq .
 *> \endverbatim
 *
 *  Authors:
@@ -98,10 +101,13 @@
 *
 *> \date December 2016
 *
-*> \ingroup OTHERauxiliary
+*> This implementation of ZLASSQ has been deprecated with LAPACKv3.10.
+*> A better version of ZLASSQ was contributed by Ed Anderson and released in 3.10.
+*
+*> \ingroup complex16OTHERauxiliary
 *
 *  =====================================================================
-      SUBROUTINE DLASSQ( N, X, INCX, SCALE, SUMSQ )
+      SUBROUTINE ZLASSQ( N, X, INCX, SCALE, SUMSQ )
 *
 *  -- LAPACK auxiliary routine (version 3.7.0) --
 *  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -113,7 +119,7 @@
       DOUBLE PRECISION   SCALE, SUMSQ
 *     ..
 *     .. Array Arguments ..
-      DOUBLE PRECISION   X( * )
+      COMPLEX*16         X( * )
 *     ..
 *
 * =====================================================================
@@ -124,32 +130,42 @@
 *     ..
 *     .. Local Scalars ..
       INTEGER            IX
-      DOUBLE PRECISION   ABSXI
+      DOUBLE PRECISION   TEMP1
 *     ..
 *     .. External Functions ..
       LOGICAL            DISNAN
       EXTERNAL           DISNAN
 *     ..
 *     .. Intrinsic Functions ..
-      INTRINSIC          ABS
+      INTRINSIC          ABS, DBLE, DIMAG
 *     ..
 *     .. Executable Statements ..
 *
       IF( N.GT.0 ) THEN
          DO 10 IX = 1, 1 + ( N-1 )*INCX, INCX
-            ABSXI = ABS( X( IX ) )
-            IF( ABSXI.GT.ZERO.OR.DISNAN( ABSXI ) ) THEN
-               IF( SCALE.LT.ABSXI ) THEN
-                  SUMSQ = 1 + SUMSQ*( SCALE / ABSXI )**2
-                  SCALE = ABSXI
+            TEMP1 = ABS( DBLE( X( IX ) ) )
+            IF( TEMP1.GT.ZERO.OR.DISNAN( TEMP1 ) ) THEN
+               IF( SCALE.LT.TEMP1 ) THEN
+                  SUMSQ = 1 + SUMSQ*( SCALE / TEMP1 )**2
+                  SCALE = TEMP1
                ELSE
-                  SUMSQ = SUMSQ + ( ABSXI / SCALE )**2
+                  SUMSQ = SUMSQ + ( TEMP1 / SCALE )**2
+               END IF
+            END IF
+            TEMP1 = ABS( DIMAG( X( IX ) ) )
+            IF( TEMP1.GT.ZERO.OR.DISNAN( TEMP1 ) ) THEN
+               IF( SCALE.LT.TEMP1 ) THEN
+                  SUMSQ = 1 + SUMSQ*( SCALE / TEMP1 )**2
+                  SCALE = TEMP1
+               ELSE
+                  SUMSQ = SUMSQ + ( TEMP1 / SCALE )**2
                END IF
             END IF
    10    CONTINUE
       END IF
+*
       RETURN
 *
-*     End of DLASSQ
+*     End of ZLASSQ
 *
       END
