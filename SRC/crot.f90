@@ -1,5 +1,5 @@
 subroutine CROT( n, x, incx, y, incy, c, s )
-   use LA_CONSTANTS32, only: wp
+   use LA_CONSTANTS, only: wp => sp
 !
 !  Updated Level 1 BLAS
 !  E. Anderson

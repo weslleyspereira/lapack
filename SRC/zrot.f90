@@ -1,5 +1,5 @@
 subroutine ZROT( n, x, incx, y, incy, c, s )
-   use LA_CONSTANTS, only: wp
+   use LA_CONSTANTS, only: wp => dp
 !
 !  Updated Level 1 BLAS
 !  E. Anderson
