@@ -1,11 +1,130 @@
+!> \brief \b CLASSQ updates a sum of squares represented in scaled form.
+!
+!  =========== DOCUMENTATION ===========
+!
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
+!
+!  Definition:
+!  ===========
+!
+!       SUBROUTINE CLASSQ( N, X, INCX, SCL, SUMSQ )
+!
+!       .. Scalar Arguments ..
+!       INTEGER            INCX, N
+!       REAL(wp)           SCL, SUMSQ
+!       ..
+!       .. Array Arguments ..
+!       COMPLEX(wp)        X( * )
+!       ..
+!
+!> \par Purpose:
+!  =============
+!>
+!> \verbatim
+!>
+!> CLASSQ  returns the values  scl  and  smsq  such that
+!>
+!>    ( scl**2 )*smsq = x( 1 )**2 +...+ x( n )**2 + ( scale**2 )*sumsq,
+!>
+!> where  x( i ) = X( 1 + ( i - 1 )*INCX ). The value of  sumsq  is
+!> assumed to be non-negative and  scl  returns the value
+!>
+!>    scl = max( scale, abs( x( i ) ) ).
+!>
+!> scale and sumsq must be supplied in SCL and SUMSQ and
+!> scl and smsq are overwritten on SCL and SUMSQ respectively.
+!>
+!> Below, wp=>sp stands for single precision from LA_CONSTANTS module.
+!> \endverbatim
+!
+!  Arguments:
+!  ==========
+!
+!> \param[in] N
+!> \verbatim
+!>          N is INTEGER
+!>          The number of elements to be used from the vector X.
+!> \endverbatim
+!>
+!> \param[in] X
+!> \verbatim
+!>          X is COMPLEX(wp) array, dimension (1+(N-1)*abs(INCX))
+!>          The vector for which a scaled sum of squares is computed.
+!>             x( i )  = X( 1 + ( i - 1 )*INCX ), 1 <= i <= n.
+!> \endverbatim
+!>
+!> \param[in] INCX
+!> \verbatim
+!>          INCX is INTEGER
+!           The increment between successive values of the vector x.
+!           If INCX > 0, X(1+(i-1)*INCX) = x(i) for 1 <= i <= n
+!           If INCX < 0, X(1-(n-i)*INCX) = x(i) for 1 <= i <= n
+!           If INCX = 0, x isn't a vector so there is no need to call
+!           this subroutine.  If you call it anyway, it will count x(1)
+!           in the vector norm N times.
+!> \endverbatim
+!>
+!> \param[in,out] SCL
+!> \verbatim
+!>          SCL is REAL(wp)
+!>          On entry, the value  scale  in the equation above.
+!>          On exit, SCL is overwritten with  scl , the scaling factor
+!>          for the sum of squares.
+!> \endverbatim
+!>
+!> \param[in,out] SUMSQ
+!> \verbatim
+!>          SUMSQ is REAL(wp)
+!>          On entry, the value  sumsq  in the equation above.
+!>          On exit, SUMSQ is overwritten with  smsq , the basic sum of
+!>          squares from which  scl  has been factored out.
+!> \endverbatim
+!
+!  Authors:
+!  ========
+!
+!> \author Edward Anderson, Lockheed Martin
+!
+!> \date August 2016
+!
+!> \ingroup OTHERauxiliary
+!
+!> \par Contributors:
+!  ==================
+!>
+!> Weslley Pereira, University of Colorado Denver, USA
+!
+!> \par Further Details:
+!  =====================
+!>
+!> \verbatim
+!>
+!>  Anderson E. (2017)
+!>  Algorithm 978: Safe Scaling in the Level 1 BLAS
+!>  ACM Trans Math Softw 44:1--28
+!>  https://doi.org/10.1145/3061665
+!>
+!> Based on Blue's algorithm:
+!>
+!>  Blue, James L. (1978)
+!>  A Portable Fortran Program to Find the Euclidean Norm of a Vector
+!>  ACM Trans Math Softw 4:15--23
+!>  https://doi.org/10.1145/355769.355771
+!>
+!> \endverbatim
+!
+!  =====================================================================
 subroutine CLASSQ( n, x, incx, scl, sumsq )
-   use LA_CONSTANTS32, only: wp, zero, one, sbig, ssml, tbig, tsml
+   use LA_CONSTANTS, &
+   only: wp=>sp, zero=>szero, one=>sone, &
+         sbig=>ssbig, ssml=>sssml, tbig=>stbig, tsml=>stsml
    use LA_XISNAN
 !
-!  LAPACK auxiliary routine
-!  Based on Blue's algorithm from ACM TOMS, March 1978
-!  E. Anderson
-!  August 9, 2016
+!  -- LAPACK auxiliary routine (version 3.10.0) --
+!  -- LAPACK is a software package provided by Univ. of Tennessee,    --
+!  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
+!     February 2021
 !
 !  .. Scalar Arguments ..
    integer :: incx, n
@@ -14,51 +133,6 @@ subroutine CLASSQ( n, x, incx, scl, sumsq )
 !  .. Array Arguments ..
    complex(wp) :: x(*)
 !  ..
-!
-!  Purpose
-!  =======
-!
-!  CLASSQ  returns the values  scl  and  smsq  such that
-!
-!     ( scl**2 )*smsq = x( 1 )**2 +...+ x( n )**2 + ( scale**2 )*sumsq,
-!
-!  where  x( i ) = X( 1 + ( i - 1 )*INCX ). The value of  sumsq  is
-!  assumed to be non-negative and  scl  returns the value
-!
-!     scl = max( scale, abs( x( i ) ) ).
-!
-!  scale and sumsq must be supplied in SCL and SUMSQ and
-!  scl and smsq are overwritten on SCL and SUMSQ respectively.
-!
-!  Arguments
-!  =========
-!
-!  N       (input) INTEGER
-!          The number of elements of the vector x.
-!
-!  X       (input) COMPLEX array, dimension (1+(N-1)*abs(INCX))
-!          The n-element vector x.
-!
-!  INCX    (input) INTEGER
-!          The increment between successive values of the vector x.
-!          If INCX > 0, X(1+(i-1)*INCX) = x(i) for 1 <= i <= n
-!          If INCX < 0, X(1-(n-i)*INCX) = x(i) for 1 <= i <= n
-!          If INCX = 0, x isn't a vector so there is no need to call
-!          this subroutine.  If you call it anyway, it will count x(1)
-!          in the vector norm N times.
-!
-!  SCL     (input/output) REAL
-!          On entry, the value  scale  in the equation above.
-!          On exit, SCL is overwritten with  scl , the scaling factor
-!          for the sum of squares.
-!
-!  SUMSQ   (input/output) REAL
-!          On entry, the value  sumsq  in the equation above.
-!          On exit, SUMSQ is overwritten with  smsq , the basic sum of
-!          squares from which  scl  has been factored out.
-!
-! =====================================================================
-!
 !  .. Local Scalars ..
    integer :: i, ix
    logical :: notbig
