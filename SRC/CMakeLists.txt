@@ -41,7 +41,7 @@ set(ALLAUX ilaenv.f ilaenv2stage.f ieeeck.f lsamen.f iparmq.f iparam2stage.F
    ../INSTALL/slamch.f)
 
 set(SCLAUX
-   la_constants.f90
+   la_constants.f90 la_xisnan.F90 la_xmaxnan.f90
    sbdsdc.f
    sbdsqr.f sdisna.f slabad.f slacpy.f sladiv.f slae2.f  slaebz.f
    slaed0.f slaed1.f slaed2.f slaed3.f slaed4.f slaed5.f slaed6.f
@@ -54,13 +54,13 @@ set(SCLAUX
    slasd0.f slasd1.f slasd2.f slasd3.f slasd4.f slasd5.f slasd6.f
    slasd7.f slasd8.f slasda.f slasdq.f slasdt.f
    slaset.f slasq1.f slasq2.f slasq3.f slasq4.f slasq5.f slasq6.f
-   slasr.f  slasrt.f slassq.f slasv2.f spttrf.f sstebz.f sstedc.f
+   slasr.f  slasrt.f slassq.f90 slasv2.f spttrf.f sstebz.f sstedc.f
    ssteqr.f ssterf.f slaisnan.f sisnan.f
    slartgp.f slartgs.f
    ${SECOND_SRC})
 
 set(DZLAUX
-   la_constants.f90
+   la_constants.f90 la_xisnan.F90 la_xmaxnan.f90
    dbdsdc.f
    dbdsqr.f ddisna.f dlabad.f dlacpy.f dladiv.f dlae2.f  dlaebz.f
    dlaed0.f dlaed1.f dlaed2.f dlaed3.f dlaed4.f dlaed5.f dlaed6.f
@@ -95,7 +95,7 @@ set(SLASRC
    shsein.f shseqr.f slabrd.f slacon.f slacn2.f
    slaein.f slaexc.f slag2.f  slags2.f slagtm.f slagv2.f slahqr.f
    slahr2.f slaic1.f slaln2.f slals0.f slalsa.f slalsd.f
-   slangb.f slange.f slangt.f slanhs.f slansb.f slansp.f
+   slangb.f slange.f90 slangt.f slanhs.f slansb.f slansp.f
    slansy.f slantb.f slantp.f slantr.f slanv2.f
    slapll.f slapmt.f
    slaqgb.f slaqge.f slaqp2.f slaqps.f slaqsb.f slaqsp.f slaqsy.f
