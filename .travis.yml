@@ -63,7 +63,7 @@ script:
     -DLAPACKE:BOOL=ON
     -DBUILD_TESTING=ON
     -DLAPACKE_WITH_TMG:BOOL=ON
-    -DCMAKE_Fortran_FLAGS:STRING="-fimplicit-none -frecursive"
+    -DCMAKE_Fortran_FLAGS:STRING="-fimplicit-none -frecursive -fcheck=all"
     ${SRC_DIR}
   - ctest -D ExperimentalStart
   - ctest -D ExperimentalConfigure
