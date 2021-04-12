@@ -322,7 +322,7 @@
       DOUBLE PRECISION   DIF( 2 )
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           DGEQRF, DGGBAK, DGGBAL, DGGHD3, DLAQZ0, DLABAD,
+      EXTERNAL           DGEQRF, DGGBAK, DGGBAL, DGGHRD, DHGEQZ, DLABAD,
      $                   DLACPY, DLASCL, DLASET, DORGQR, DORMQR, DTGSEN,
      $                   XERBLA
 *     ..
@@ -398,12 +398,9 @@
             CALL DORGQR( N, N, N, VSL, LDVSL, WORK, WORK, -1, IERR )
             LWKOPT = MAX( LWKOPT, 3*N+INT( WORK ( 1 ) ) )
          END IF
-         CALL DGGHD3( JOBVSL, JOBVSR, N, 1, N, A, LDA, B, LDB, VSL,
-     $                LDVSL, VSR, LDVSR, WORK, -1, IERR )
-         LWKOPT = MAX( LWKOPT, 3*N+INT( WORK ( 1 ) ) )
-         CALL DLAQZ0( 'S', JOBVSL, JOBVSR, N, 1, N, A, LDA, B, LDB,
+         CALL DHGEQZ( 'S', JOBVSL, JOBVSR, N, 1, N, A, LDA, B, LDB,
      $                ALPHAR, ALPHAI, BETA, VSL, LDVSL, VSR, LDVSR,
-     $                WORK, -1, 0, IERR )
+     $                WORK, -1, IERR )
          LWKOPT = MAX( LWKOPT, 2*N+INT( WORK ( 1 ) ) )
          IF( WANTST ) THEN
             CALL DTGSEN( 0, ILVSL, ILVSR, BWORK, N, A, LDA, B, LDB,
@@ -509,22 +506,21 @@
 *     Reduce to generalized Hessenberg form
 *
       CALL SYSTEM_CLOCK( STARTTIME )
-      CALL DGGHD3( JOBVSL, JOBVSR, N, ILO, IHI, A, LDA, B, LDB, VSL,
-     $             LDVSL, VSR, LDVSR, WORK( IWRK ), LWORK+1-IWRK,
-     $             IERR )
+      CALL DGGHRD( JOBVSL, JOBVSR, N, ILO, IHI, A, LDA, B, LDB, VSL,
+     $             LDVSL, VSR, LDVSR, IERR )
       CALL SYSTEM_CLOCK( ENDTIME, COUNT_RATE )
-      WRITE ( *, "( A, F15.7 )") "DGGHD3 TIME: ", ( ( ENDTIME-
+      WRITE ( *, "( A, F15.7 )") "DGGHRD TIME: ", ( ( ENDTIME-
      $         STARTTIME )/REAL( COUNT_RATE, 8 ) )
 *
 *     Perform QZ algorithm, computing Schur vectors if desired
 *
       IWRK = ITAU
       CALL SYSTEM_CLOCK( STARTTIME )
-      CALL DLAQZ0( 'S', JOBVSL, JOBVSR, N, ILO, IHI, A, LDA, B, LDB,
+      CALL DHGEQZ( 'S', JOBVSL, JOBVSR, N, ILO, IHI, A, LDA, B, LDB,
      $             ALPHAR, ALPHAI, BETA, VSL, LDVSL, VSR, LDVSR,
-     $             WORK( IWRK ), LWORK+1-IWRK, 0, IERR )
+     $             WORK( IWRK ), LWORK+1-IWRK, IERR )
       CALL SYSTEM_CLOCK( ENDTIME, COUNT_RATE )
-      WRITE ( *, "( A, F15.7 )") "DLAQZ0 TIME: ", ( ( ENDTIME-
+      WRITE ( *, "( A, F15.7 )") "DHGEQZ TIME: ", ( ( ENDTIME-
      $         STARTTIME )/REAL( COUNT_RATE, 8 ) )
       IF( IERR.NE.0 ) THEN
          IF( IERR.GT.0 .AND. IERR.LE.N ) THEN
