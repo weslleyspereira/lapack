@@ -315,6 +315,7 @@
      $                   ILO, IP, IRIGHT, IROWS, ITAU, IWRK, LWKOPT
       DOUBLE PRECISION   ANRM, ANRMTO, BIGNUM, BNRM, BNRMTO, EPS, PVSL,
      $                   PVSR, SAFMAX, SAFMIN, SMLNUM
+      INTEGER( 8 )    :: STARTTIME, ENDTIME, COUNT_RATE
 *     ..
 *     .. Local Arrays ..
       INTEGER            IDUM( 1 )
@@ -507,16 +508,24 @@
 *
 *     Reduce to generalized Hessenberg form
 *
+      CALL SYSTEM_CLOCK( STARTTIME )
       CALL DGGHD3( JOBVSL, JOBVSR, N, ILO, IHI, A, LDA, B, LDB, VSL,
      $             LDVSL, VSR, LDVSR, WORK( IWRK ), LWORK+1-IWRK,
      $             IERR )
+      CALL SYSTEM_CLOCK( ENDTIME, COUNT_RATE )
+      WRITE ( *, "( A, F15.7 )") "DGGHD3 TIME: ", ( ( ENDTIME-
+     $         STARTTIME )/REAL( COUNT_RATE, 8 ) )
 *
 *     Perform QZ algorithm, computing Schur vectors if desired
 *
       IWRK = ITAU
+      CALL SYSTEM_CLOCK( STARTTIME )
       CALL DLAQZ0( 'S', JOBVSL, JOBVSR, N, ILO, IHI, A, LDA, B, LDB,
      $             ALPHAR, ALPHAI, BETA, VSL, LDVSL, VSR, LDVSR,
      $             WORK( IWRK ), LWORK+1-IWRK, 0, IERR )
+      CALL SYSTEM_CLOCK( ENDTIME, COUNT_RATE )
+      WRITE ( *, "( A, F15.7 )") "DLAQZ0 TIME: ", ( ( ENDTIME-
+     $         STARTTIME )/REAL( COUNT_RATE, 8 ) )
       IF( IERR.NE.0 ) THEN
          IF( IERR.GT.0 .AND. IERR.LE.N ) THEN
             INFO = IERR
