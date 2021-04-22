@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Christoph Conrads (https://christoph-conrads.name)
+ * Copyright (c) 2020-2021 Christoph Conrads
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,7 @@
 #include "xGGSVD3.hpp"
 
 #include <boost/assert.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
 #include <boost/test/unit_test.hpp>
 #include <ctime>
 
@@ -387,39 +388,55 @@ template<
 		std::is_fundamental<Number>::value, int
 	>::type* = nullptr
 >
-void xGGQRCS_test_zero_dimensions_impl(Number)
-{
+void xGGQRCS_test_zero_dimensions_impl(
+	std::size_t m, std::size_t n, std::size_t p) {
+	using Storage = ublas::column_major;
+	using Matrix = ublas::matrix<Number, Storage>;
 	using Real = typename tools::real_from<Number>::type;
 	using Integer = lapack::integer_t;
 
 	constexpr auto nan = tools::not_a_number<Number>::value;
 	constexpr auto real_nan = tools::not_a_number<Real>::value;
+	constexpr auto one = std::size_t{1};
 
+	auto k = std::max(std::min(m + p, n), one);
 	auto rank = Integer{-1};
 	auto swapped_p = false;
-	auto lda = 1;
-	auto A = std::vector<Number>(lda*1, nan);
-	auto ldb = 1;
-	auto B = std::vector<Number>(ldb*1, nan);
-	auto alpha = std::vector<Real>(1, real_nan);
-	auto beta = std::vector<Real>(1, real_nan);
+	auto lda = std::max(m, one);
+	auto A = Matrix(lda, std::max(n, one), 1);
+	auto ldb = std::max(p, one);
+	auto B = Matrix(ldb, std::max(n, one), 1);
+	auto alpha = std::vector<Real>(k, real_nan);
+	auto beta = std::vector<Real>(k, real_nan);
+	auto ldu1 = std::max(m, one);
+	auto U1 = Matrix(ldu1, std::max(m, one), nan);
+	auto ldu2 = std::max(p, one);
+	auto U2 = Matrix(ldu2, std::max(p, one), nan);
 	// this must be large enough not to trigger the workspace size check
-	auto lwork = 128;
+	auto lwork = std::max(4 * (m + p) * n, std::size_t{128});
 	auto work = std::vector<Number>(lwork, nan);
-	auto iwork = std::vector<Integer>(1, -1);
-	auto f = [&] (std::size_t m, std::size_t n, std::size_t p) {
-		return lapack::xGGQRCS(
-			'N', 'N', 'N', m, n, p, &rank, &swapped_p,
-			&A[0], lda, &B[0], ldb,
-			&alpha[0], &beta[0],
-			nullptr, 1, nullptr, 1,
-			&work[0], lwork, &iwork[0]
-		);
-	};
+	auto iwork = std::vector<Integer>(lwork, -1);
+	auto ret = lapack::xGGQRCS(
+		'Y', 'Y', 'N', m, n, p, &rank, &swapped_p,
+		&A(0, 0), lda, &B(0, 0), ldb,
+		&alpha[0], &beta[0],
+		&U1(0, 0), 1, &U2(0, 0), 1,
+		&work[0], lwork, &iwork[0]
+	);
 
-	BOOST_CHECK_EQUAL( f(0, 1, 1), -4 );
-	BOOST_CHECK_EQUAL( f(1, 0, 1), -5 );
-	BOOST_CHECK_EQUAL( f(1, 1, 0), -6 );
+	BOOST_REQUIRE_EQUAL(ret, 0);
+
+	constexpr auto eps = std::numeric_limits<Real>::epsilon();
+	auto nan_p = [] (const Number& x) { return tools::nan_p(x); };
+
+	if(m > 0) {
+		BOOST_REQUIRE(std::none_of(U1.data().begin(), U1.data().end(), nan_p));
+		BOOST_CHECK_LE(tools::measure_isometry(U1), m * eps);
+	}
+	if(p > 0) {
+		BOOST_REQUIRE(std::none_of(U2.data().begin(), U2.data().end(), nan_p));
+		BOOST_CHECK_LE(tools::measure_isometry(U2), p * eps);
+	}
 }
 
 template<
@@ -428,45 +445,68 @@ template<
 		!std::is_fundamental<Number>::value, int
 	>::type* = nullptr
 >
-void xGGQRCS_test_zero_dimensions_impl(Number)
-{
+void xGGQRCS_test_zero_dimensions_impl(
+	std::size_t m, std::size_t n, std::size_t p) {
+	using Storage = ublas::column_major;
+	using Matrix = ublas::matrix<Number, Storage>;
 	using Real = typename tools::real_from<Number>::type;
 	using Integer = lapack::integer_t;
 
 	constexpr auto nan = tools::not_a_number<Number>::value;
 	constexpr auto real_nan = tools::not_a_number<Real>::value;
+	constexpr auto one = std::size_t{1};
 
+	auto k = std::max(std::min(m + p, n), one);
 	auto rank = Integer{-1};
 	auto swapped_p = false;
-	auto lda = 1;
-	auto A = std::vector<Number>(lda*1, nan);
-	auto ldb = 1;
-	auto B = std::vector<Number>(ldb*1, nan);
-	auto alpha = std::vector<Real>(1, real_nan);
-	auto beta = std::vector<Real>(1, real_nan);
-	auto lwork = 1;
+	auto lda = std::max(m, one);
+	auto A = Matrix(lda, std::max(n, one), 1);
+	auto ldb = std::max(p, one);
+	auto B = Matrix(ldb, std::max(n, one), 1);
+	auto alpha = std::vector<Real>(k, real_nan);
+	auto beta = std::vector<Real>(k, real_nan);
+	auto ldu1 = std::max(m, one);
+	auto U1 = Matrix(ldu1, std::max(m, one), nan);
+	auto ldu2 = std::max(p, one);
+	auto U2 = Matrix(ldu2, std::max(p, one), nan);
+	// this must be large enough not to trigger the workspace size check
+	auto lwork = std::max(4 * (m + p) * n, std::size_t{128});
 	auto work = std::vector<Number>(lwork, nan);
-	auto lrwork = 1;
-	auto rwork = std::vector<Real>(lrwork, real_nan);
-	auto iwork = std::vector<Integer>(1, -1);
-	auto f = [&] (std::size_t m, std::size_t n, std::size_t p) {
-		return lapack::xGGQRCS(
-			'N', 'N', 'N', m, n, p, &rank, &swapped_p,
-			&A[0], lda, &B[0], ldb,
-			&alpha[0], &beta[0],
-			nullptr, 1, nullptr, 1,
-			&work[0], lwork, &rwork[0], lrwork, &iwork[0]
-		);
-	};
+	auto rwork = std::vector<Real>(lwork, real_nan);
+	auto iwork = std::vector<Integer>(lwork, -1);
+	auto ret = lapack::xGGQRCS(
+		'Y', 'Y', 'N', m, n, p, &rank, &swapped_p,
+		&A(0, 0), lda, &B(0, 0), ldb,
+		&alpha[0], &beta[0],
+		&U1(0, 0), 1, &U2(0, 0), 1,
+		&work[0], work.size(), &rwork[0], rwork.size(), &iwork[0]
+	);
 
-	BOOST_CHECK_EQUAL( f(0, 1, 1), -4 );
-	BOOST_CHECK_EQUAL( f(1, 0, 1), -5 );
-	BOOST_CHECK_EQUAL( f(1, 1, 0), -6 );
+	BOOST_REQUIRE_EQUAL(ret, 0);
+
+	constexpr auto eps = std::numeric_limits<Real>::epsilon();
+	auto nan_p = [] (const Number& x) { return tools::nan_p(x); };
+
+	if(m > 0) {
+		BOOST_REQUIRE(std::none_of(U1.data().begin(), U1.data().end(), nan_p));
+		BOOST_CHECK_LE(tools::measure_isometry(U1), m * eps);
+	}
+	if(p > 0) {
+		BOOST_REQUIRE(std::none_of(U2.data().begin(), U2.data().end(), nan_p));
+		BOOST_CHECK_LE(tools::measure_isometry(U2), p * eps);
+	}
 }
+
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_zero_dimensions, Number, types)
 {
-	xGGQRCS_test_zero_dimensions_impl(Number{0});
+	for(auto m = std::size_t{0}; m < std::size_t{2}; ++m) {
+		for(auto n = std::size_t{0}; n < std::size_t{2}; ++n) {
+			for(auto p = std::size_t{0}; p < std::size_t{2}; ++p) {
+				xGGQRCS_test_zero_dimensions_impl<Number>(m, n, p);
+			}
+		}
+	}
 }
 
 
