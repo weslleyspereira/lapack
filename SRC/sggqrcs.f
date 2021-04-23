@@ -21,12 +21,14 @@
 *       SUBROUTINE SGGQRCS( JOBU1, JOBU2, JOBX, M, N, P, L, SWAPPED,
 *                           A, LDA, B, LDB,
 *                           ALPHA, BETA,
-*                           U1, LDU1, U2, LDU2
+*                           U1, LDU1, U2, LDU2,
+*                           TOL,
 *                           WORK, LWORK, IWORK, INFO )
 *
 *       .. Scalar Arguments ..
 *       CHARACTER          JOBU1, JOB2, JOBX
 *       INTEGER            INFO, LDA, LDB, LDU1, LDU2, M, N, P, L, LWORK
+*       REAL               TOL
 *       ..
 *       .. Array Arguments ..
 *       INTEGER            IWORK( * )
@@ -241,6 +243,19 @@
 *>          JOBU2 = 'Y'; LDU2 >= 1 otherwise.
 *> \endverbatim
 *>
+*> \param[in,out] TOL
+*> \verbatim
+*>          TOL is REAL
+*>          This user-provided tolerance is used for the rank determination
+*>          of the matrix G = (A**T, W*B**T)**T, see the documentation
+*>          of ABSTOL for details.
+*>
+*>          If TOL < 0, then the tolerance will be determined
+*>          automatically and this should be the default choice for most
+*>          users. Otherwise, the user must provide a value in the
+*>          closed interval [0, 1].
+*> \endverbatim
+*>
 *> \param[out] WORK
 *> \verbatim
 *>          WORK is REAL array, dimension (MAX(1,LWORK))
@@ -278,15 +293,15 @@
 *> \verbatim
 *>  W       REAL
 *>          W is a radix power chosen such that the Frobenius norm of A
-*>          and W*B are with SQRT(RADIX) and 1/SQRT(RADIX) of each
+*>          and W*B are within SQRT(RADIX) and 1/SQRT(RADIX) of each
 *>          other.
 *>
-*>  TOL     REAL
-*>          Let G = (A**T,B**T)**T. TOL is the threshold to determine
+*>  ABSTOL  REAL
+*>          Let G = (A**T, W*B**T)**T. ABSTOL is the threshold to determine
 *>          the effective rank of G. Generally, it is set to
-*>                   TOL = MAX( M + P, N ) * norm(G) * MACHEPS,
+*>                   ABSTOL = TOL * MAX( M + P, N ) * norm(G),
 *>          where norm(G) is the Frobenius norm of G.
-*>          The size of TOL may affect the size of backward error of the
+*>          The size of ABSTOL may affect the size of backward error of the
 *>          decomposition.
 *> \endverbatim
 *
@@ -320,6 +335,7 @@
      $                              A, LDA, B, LDB,
      $                              ALPHA, BETA,
      $                              U1, LDU1, U2, LDU2,
+     $                              TOL,
      $                              WORK, LWORK, IWORK, INFO )
 *
 *  -- LAPACK driver routine --
@@ -331,6 +347,7 @@
       LOGICAL            SWAPPED
       CHARACTER          JOBU1, JOBU2, JOBX
       INTEGER            INFO, LDA, LDB, LDU1, LDU2, L, M, N, P, LWORK
+      REAL               TOL
 *     ..
 *     .. Array Arguments ..
       INTEGER            IWORK( * )
@@ -346,7 +363,7 @@
       LOGICAL            WANTU1, WANTU2, WANTX, LQUERY
       INTEGER            I, J, K, K1, LMAX, IG, IG11, IG21, IG22,
      $                   IVT, IVT12, LDG, LDX, LDVT, LWKMIN, LWKOPT
-      REAL               BASE, NORMA, NORMB, NORMG, TOL, ULP, UNFL,
+      REAL               BASE, NORMA, NORMB, NORMG, ABSTOL, ULP, UNFL,
      $                   THETA, IOTA, W
 *     ..
 *     .. External Functions ..
@@ -393,8 +410,10 @@
          INFO = -16
       ELSE IF( LDU2.LT.1 .OR. ( WANTU2 .AND. LDU2.LT.P ) ) THEN
          INFO = -18
+      ELSE IF( ISNAN(TOL) .OR. TOL.GT.1.0E0 ) THEN
+         INFO = -19
       ELSE IF( LWORK.LT.1 .AND. .NOT.LQUERY ) THEN
-         INFO = -20
+         INFO = -21
       END IF
 *
 *     Make sure A is the matrix smaller in norm
@@ -409,6 +428,7 @@
      $                    B, LDB, A, LDA,
      $                    BETA, ALPHA,
      $                    U2, LDU2, U1, LDU1,
+     $                    TOL,
      $                    WORK, LWORK, IWORK, INFO )
             SWAPPED = .TRUE.
             RETURN
@@ -439,6 +459,11 @@
       THETA = -1
       IOTA = -1
       W = -1
+      ULP = SLAMCH( 'Precision' )
+      UNFL = SLAMCH( 'Safe Minimum' )
+      IF( TOL.LT.0.0E0 .AND. .NOT.LQUERY ) THEN
+         TOL = ULP
+      ENDIF
 *
 *     Compute workspace
 *
@@ -514,12 +539,10 @@
 *
       NORMG = NORMB * SQRT( 1.0E0 + ( ( W * NORMA ) / NORMB )**2 )
 *
-*     Get machine precision and set up threshold for determining
-*     the effective numerical rank of the matrix G.
+*     Set up threshold for determining the effective numerical rank of
+*     the matrix G.
 *
-      ULP = SLAMCH( 'Precision' )
-      UNFL = SLAMCH( 'Safe Minimum' )
-      TOL = MAX( M + P, N ) * MAX( NORMG, UNFL ) * ULP
+      ABSTOL = TOL * MAX( M + P, N ) * MAX( NORMG, UNFL )
 *
 *     IWORK stores the column permutations computed by SGEQP3.
 *     Columns J where IWORK( J ) is non-zero are permuted to the front
@@ -538,7 +561,7 @@
 *     Determine the rank of G
 *
       DO I = 1, MIN( M + P, N )
-         IF( ABS( WORK( (I-1) * LDG + I ) ).LE.TOL ) THEN
+         IF( ABS( WORK( (I-1) * LDG + I ) ).LE.ABSTOL ) THEN
             EXIT
          END IF
          L = L + 1
@@ -635,7 +658,7 @@
 *           ensure sine, cosine divisor is far away from zero
 *           w is a power of two and will cause no trouble
             IF( SIN( IOTA ) .GE. COS( IOTA ) ) THEN
-               ALPHA( I ) =  ( SIN( IOTA ) / TAN( THETA ) ) / W
+               ALPHA( I ) = ( SIN( IOTA ) / TAN( THETA ) ) / W
                BETA( I ) = SIN( IOTA )
                IF( WANTX ) THEN
                   WORK( IVT + I ) = SIN( THETA ) / SIN( IOTA )
