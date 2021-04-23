@@ -347,7 +347,7 @@
       INTEGER            I, J, K, K1, LMAX, IG, IG11, IG21, IG22,
      $                   IVT, IVT12, LDG, LDX, LDVT, LWKMIN, LWKOPT
       REAL               BASE, NORMA, NORMB, NORMG, TOL, ULP, UNFL,
-     $                   THETA, IOTA, W, HUGENUM
+     $                   THETA, IOTA, W, EXP_MAX, POWER_MAX
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
@@ -493,19 +493,24 @@
 *
 *     Scale matrix A such that norm(A) \approx norm(B) 
 *
-      W = NORMB / NORMA
-      HUGENUM = SLAMCH( 'Overflow threshold' )
-      IF( W.GT.HUGENUM ) THEN
-*        normA << normB
-         W = HUGENUM
-      ELSE
+      UNFL = SLAMCH( 'Safe Minimum' )
+      IF( NORMA.GT.UNFL ) THEN
+         W = NORMB / NORMA
          BASE = SLAMCH( 'B' )
-         W = BASE ** INT( LOG( W ) / LOG( BASE ) )
+         EXP_MAX = SLAMCH( 'Largest exponent before overflow' )
+         POWER_MAX = BASE ** ( EXP_MAX-1 )
+         IF( W.LT.POWER_MAX ) THEN
+            W = BASE ** INT( LOG( W ) / LOG( BASE ) )
+         ELSE
+            W = POWER_MAX
+         ENDIF
 *
          CALL SLASCL( 'G', -1, -1, 1.0E0, W, M, N, A, LDA, INFO )
          IF ( INFO.NE.0 ) THEN
             RETURN
          END IF
+      ELSE
+         W = 1.0E0
       END IF
 *
 *     Copy matrices A, B into the (M+P) x N matrix G
