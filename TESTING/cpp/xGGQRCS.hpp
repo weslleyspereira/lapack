@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2019, 2020 Christoph Conrads
+ * Copyright (c) 2016, 2019-2021 Christoph Conrads
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -339,6 +339,7 @@ struct Caller
 	bool swapped_p = false;
 	std::size_t m, n, p;
 	std::size_t lda, ldb, ldu1, ldu2;
+	Real tol;
 	Matrix A, B;
 	Matrix U1, U2;
 	Vector<Number> alpha, beta;
@@ -380,6 +381,7 @@ struct Caller
 		p(p_),
 		lda(lda_), ldb(ldb_),
 		ldu1(ldu1_), ldu2(ldu2_),
+		tol(-1),
 		A(lda, n, 0),
 		B(ldb, n, 0),
 		U1(ldu1, m, tools::not_a_number<Number>::value),
@@ -395,6 +397,8 @@ struct Caller
 		BOOST_VERIFY( ldb >= p );
 		BOOST_VERIFY( ldu1 >= m );
 		BOOST_VERIFY( ldu2 >= p );
+		BOOST_VERIFY( !std::isnan(tol) );
+		BOOST_VERIFY( tol <= 1 );
 
 		auto nan = tools::not_a_number<Number>::value;
 
@@ -409,6 +413,7 @@ struct Caller
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
+			&tol,
 			&lwork_opt_f, -1, &iwork(0) );
 		BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -431,6 +436,7 @@ struct Caller
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
+			&tol,
 			&work(0), work.size(), &iwork(0)
 		);
 	}
@@ -451,6 +457,7 @@ struct Caller<std::complex<Real>>
 	bool swapped_p = false;
 	std::size_t m, n, p;
 	std::size_t lda, ldb, ldu1, ldu2;
+	Real tol;
 	Matrix A, B;
 	Matrix U1, U2;
 	Vector<Real> alpha, beta;
@@ -493,6 +500,7 @@ struct Caller<std::complex<Real>>
 		p(p_),
 		lda(lda_), ldb(ldb_),
 		ldu1(ldu1_), ldu2(ldu2_),
+		tol(-1),
 		A(lda, n, 0),
 		B(ldb, n, 0),
 		U1(ldu1, m, tools::not_a_number<Number>::value),
@@ -508,6 +516,8 @@ struct Caller<std::complex<Real>>
 		BOOST_VERIFY( ldb >= p );
 		BOOST_VERIFY( ldu1 >= m );
 		BOOST_VERIFY( ldu2 >= p );
+		BOOST_VERIFY( !std::isnan(tol) );
+		BOOST_VERIFY( tol <= 1 );
 
 		auto nan = tools::not_a_number<Number>::value;
 		auto real_nan = tools::not_a_number<Real>::value;
@@ -524,6 +534,7 @@ struct Caller<std::complex<Real>>
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
+			&tol,
 			&lwork_opt_f, -1, &lrwork_opt_f, 1, &iwork(0) );
 		BOOST_REQUIRE_EQUAL( ret, 0 );
 
@@ -548,6 +559,7 @@ struct Caller<std::complex<Real>>
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
 			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
+			&tol,
 			&work(0), work.size(),
 			&rwork(0), rwork.size(),
 			&iwork(0)
