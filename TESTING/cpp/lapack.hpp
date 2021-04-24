@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2019, 2020 Christoph Conrads (https://christoph-conrads.name)
+ * Copyright (c) 2016, 2019-2021 Christoph Conrads
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,6 +97,7 @@ extern "C"
 		float* A, lapack_int* lda, float* B, lapack_int* ldb,
 		float* alpha, float* beta,
 		float* U1, lapack_int* ldu1, float* U2, lapack_int* ldu2,
+		float* tol,
 		float* work, lapack_int* lwork,
 		lapack_int* iwork,
 		lapack_int* info,
@@ -110,6 +111,7 @@ extern "C"
 		double* A, lapack_int* lda, double* B, lapack_int* ldb,
 		double* alpha, double* beta,
 		double* U1, lapack_int* ldu1, double* U2, lapack_int* ldu2,
+		double* tol,
 		double* work, lapack_int* lwork,
 		lapack_int* iwork,
 		lapack_int* info,
@@ -125,6 +127,7 @@ extern "C"
 		float* alpha, float* beta,
 		std::complex<float>* U1, lapack_int* ldu1,
 		std::complex<float>* U2, lapack_int* ldu2,
+		float* tol,
 		std::complex<float>* work, lapack_int* lwork,
 		float* rwork, lapack_int* lrwork,
 		lapack_int* iwork,
@@ -141,6 +144,7 @@ extern "C"
 		double* alpha, double* beta,
 		std::complex<double>* U1, lapack_int* ldu1,
 		std::complex<double>* U2, lapack_int* ldu2,
+		double* tol,
 		std::complex<double>* work, lapack_int* lwork,
 		double* rwork, lapack_int* lrwork,
 		lapack_int* iwork,
@@ -452,6 +456,7 @@ inline integer_t xGGQRCS(
 	float* A, integer_t lda, float* B, integer_t ldb,
 	float* p_alpha, float* p_beta,
 	float* U1, integer_t ldu1, float* U2, integer_t ldu2,
+	float* p_tol,
 	float* work, integer_t lwork,
 	integer_t* iwork)
 {
@@ -459,6 +464,7 @@ inline integer_t xGGQRCS(
 	assert( p_swapped_p );
 	assert( p_alpha );
 	assert( p_beta );
+	assert( p_tol );
 	assert( work );
 
 	integer_t info = -1;
@@ -469,6 +475,7 @@ inline integer_t xGGQRCS(
 		A, &lda, B, &ldb,
 		p_alpha, p_beta,
 		U1, &ldu1, U2, &ldu2,
+		p_tol,
 		work, &lwork,
 		iwork, &info,
 		1, 1, 1);
@@ -483,6 +490,7 @@ inline integer_t xGGQRCS(
 	double* A, integer_t lda, double* B, integer_t ldb,
 	double* p_alpha, double* p_beta,
 	double* U1, integer_t ldu1, double* U2, integer_t ldu2,
+	double* p_tol,
 	double* work, integer_t lwork,
 	integer_t* iwork)
 {
@@ -490,6 +498,7 @@ inline integer_t xGGQRCS(
 	assert( p_swapped_p );
 	assert( p_alpha );
 	assert( p_beta );
+	assert( p_tol );
 	assert( work );
 
 	integer_t info = -1;
@@ -500,6 +509,7 @@ inline integer_t xGGQRCS(
 		A, &lda, B, &ldb,
 		p_alpha, p_beta,
 		U1, &ldu1, U2, &ldu2,
+		p_tol,
 		work, &lwork,
 		iwork, &info,
 		1, 1, 1);
@@ -516,6 +526,7 @@ inline integer_t xGGQRCS(
 	float* p_alpha, float* p_beta,
 	std::complex<float>* U1, integer_t ldu1,
 	std::complex<float>* U2, integer_t ldu2,
+	float* p_tol,
 	std::complex<float>* work, integer_t lwork,
 	float* rwork, integer_t lrwork,
 	integer_t* iwork)
@@ -524,6 +535,7 @@ inline integer_t xGGQRCS(
 	assert( p_swapped_p );
 	assert( p_alpha );
 	assert( p_beta );
+	assert( p_tol );
 	assert( work );
 	assert( rwork );
 
@@ -535,6 +547,7 @@ inline integer_t xGGQRCS(
 		A, &lda, B, &ldb,
 		p_alpha, p_beta,
 		U1, &ldu1, U2, &ldu2,
+		p_tol,
 		work, &lwork, rwork, &lrwork, iwork, &info,
 		1, 1, 1);
 	*p_swapped_p = swapped_p != 0;
@@ -550,6 +563,7 @@ inline integer_t xGGQRCS(
 	double* p_alpha, double* p_beta,
 	std::complex<double>* U1, integer_t ldu1,
 	std::complex<double>* U2, integer_t ldu2,
+	double* p_tol,
 	std::complex<double>* work, integer_t lwork,
 	double* rwork, integer_t lrwork,
 	integer_t* iwork)
@@ -558,6 +572,7 @@ inline integer_t xGGQRCS(
 	assert( p_swapped_p );
 	assert( p_alpha );
 	assert( p_beta );
+	assert( p_tol );
 	assert( work );
 	assert( rwork );
 
@@ -569,6 +584,7 @@ inline integer_t xGGQRCS(
 		A, &lda, B, &ldb,
 		p_alpha, p_beta,
 		U1, &ldu1, U2, &ldu2,
+		p_tol,
 		work, &lwork, rwork, &lrwork, iwork, &info,
 		1, 1, 1);
 	*p_swapped_p = swapped_p != 0;

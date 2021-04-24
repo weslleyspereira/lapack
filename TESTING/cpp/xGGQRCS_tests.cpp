@@ -154,6 +154,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 	auto beta = Real{-1};
 	auto u1 = Real{0};
 	auto u2 = Real{0};
+	auto tol = Real{0};
 	auto work = Real{0};
 	auto iwork = -1;
 	auto info = lapack::xGGQRCS(
@@ -161,6 +162,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 		&a, m, &b, p,
 		&alpha, &beta,
 		&u1, m, &u2, p,
+		&tol,
 		&work, 1, &iwork
 	);
 
@@ -184,6 +186,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 	auto b = Number{2};
 	auto alpha = Real{-1};
 	auto beta = Real{-1};
+	auto tol = Real{-1};
 	auto u1 = Number{0};
 	auto u2 = Number{0};
 	auto work = Number{0};
@@ -194,6 +197,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 		&a, m, &b, p,
 		&alpha, &beta,
 		&u1, m, &u2, p,
+		&tol,
 		&work, 1, &rwork, 1024, &iwork
 	);
 
@@ -204,6 +208,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 		&a, m, &b, p,
 		&alpha, &beta,
 		&u1, m, &u2, p,
+		&tol,
 		&work, 1024, &rwork, 1, &iwork
 	);
 
@@ -412,6 +417,7 @@ void xGGQRCS_test_zero_dimensions_impl(
 	auto U1 = Matrix(ldu1, std::max(m, one), nan);
 	auto ldu2 = std::max(p, one);
 	auto U2 = Matrix(ldu2, std::max(p, one), nan);
+	auto tol = Real{0};
 	// this must be large enough not to trigger the workspace size check
 	auto lwork = std::max(4 * (m + p) * n, std::size_t{128});
 	auto work = std::vector<Number>(lwork, nan);
@@ -421,6 +427,7 @@ void xGGQRCS_test_zero_dimensions_impl(
 		&A(0, 0), lda, &B(0, 0), ldb,
 		&alpha[0], &beta[0],
 		&U1(0, 0), 1, &U2(0, 0), 1,
+		&tol,
 		&work[0], lwork, &iwork[0]
 	);
 
@@ -469,6 +476,7 @@ void xGGQRCS_test_zero_dimensions_impl(
 	auto U1 = Matrix(ldu1, std::max(m, one), nan);
 	auto ldu2 = std::max(p, one);
 	auto U2 = Matrix(ldu2, std::max(p, one), nan);
+	auto tol = Real{0};
 	// this must be large enough not to trigger the workspace size check
 	auto lwork = std::max(4 * (m + p) * n, std::size_t{128});
 	auto work = std::vector<Number>(lwork, nan);
@@ -479,6 +487,7 @@ void xGGQRCS_test_zero_dimensions_impl(
 		&A(0, 0), lda, &B(0, 0), ldb,
 		&alpha[0], &beta[0],
 		&U1(0, 0), 1, &U2(0, 0), 1,
+		&tol,
 		&work[0], work.size(), &rwork[0], rwork.size(), &iwork[0]
 	);
 
