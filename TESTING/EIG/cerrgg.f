@@ -643,65 +643,70 @@
          SRNAMT = 'CGGQRCS'
          INFOT = 1
          CALL CGGQRCS( '/', 'N', 'N', 0, 0, 0, I, SWAPPED,
-     $                A, 1, B, 1, R1, R2, U, 1, V, 1,
-     $                W, LW, RW, LW, IW, INFO )
+     $                 A, 1, B, 1, R1, R2, U, 1, V, 1, SCALE,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
          INFOT = 2
          CALL CGGQRCS( 'N', '/', 'N', 0, 0, 0, I, SWAPPED,
-     $                A, 1, B, 1, R1, R2, U, 1, V, 1,
-     $                W, LW, RW, LW, IW, INFO )
+     $                 A, 1, B, 1, R1, R2, U, 1, V, 1, SCALE,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
          INFOT = 3
          CALL CGGQRCS( 'N', 'N', '/', 0, 0, 0, I, SWAPPED,
-     $                A, 1, B, 1, R1, R2, U, 1, V, 1,
-     $                W, LW, RW, LW, IW, INFO )
+     $                 A, 1, B, 1, R1, R2, U, 1, V, 1, SCALE,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
          INFOT = 4
          CALL CGGQRCS( 'N', 'N', 'N', -1, 0, 0, I, SWAPPED,
-     $                A, 1, B, 1, R1, R2, U, 1, V, 1,
-     $                W, LW, RW, LW, IW, INFO )
+     $                 A, 1, B, 1, R1, R2, U, 1, V, 1, SCALE,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
          INFOT = 5
          CALL CGGQRCS( 'N', 'N', 'N', 0, -1, 0, I, SWAPPED,
-     $                A, 1, B, 1, R1, R2, U, 1, V, 1,
-     $                W, LW, RW, LW, IW, INFO )
+     $                 A, 1, B, 1, R1, R2, U, 1, V, 1, SCALE,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
          INFOT = 6
          CALL CGGQRCS( 'N', 'N', 'N', 0, 0, -1, I, SWAPPED,
-     $                A, 1, B, 1, R1, R2, U, 1, V, 1,
-     $                W, LW, RW, LW, IW, INFO )
+     $                 A, 1, B, 1, R1, R2, U, 1, V, 1, SCALE,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
          INFOT = 10
          CALL CGGQRCS( 'N', 'N', 'N', 0, 0, 0, I, SWAPPED,
-     $                A, 0, B, 1, R1, R2, U, 1, V, 1,
-     $                W, LW, RW, LW, IW, INFO )
+     $                 A, 0, B, 1, R1, R2, U, 1, V, 1, SCALE,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
          INFOT = 12
          CALL CGGQRCS( 'N', 'N', 'N', 0, 0, 0, I, SWAPPED,
-     $                A, 1, B, 0, R1, R2, U, 1, V, 1,
-     $                W, LW, RW, LW, IW, INFO )
+     $                 A, 1, B, 0, R1, R2, U, 1, V, 1, SCALE,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
          INFOT = 16
          CALL CGGQRCS( 'N', 'N', 'N', 0, 0, 0, I, SWAPPED,
-     $                A, 1, B, 1, R1, R2, U, 0, V, 1,
-     $                W, LW, RW, LW, IW, INFO )
+     $                 A, 1, B, 1, R1, R2, U, 0, V, 1, SCALE,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
          INFOT = 18
          CALL CGGQRCS( 'N', 'N', 'N', 0, 0, 0, I, SWAPPED,
-     $                A, 1, B, 1, R1, R2, U, 1, V, 0,
-     $                W, LW, RW, LW, IW, INFO )
+     $                 A, 1, B, 1, R1, R2, U, 1, V, 0, SCALE,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
-         INFOT = 20
+         INFOT = 19
          CALL CGGQRCS( 'N', 'N', 'N', 0, 0, 0, I, SWAPPED,
-     $                A, 1, B, 1, R1, R2, U, 1, V, 1,
-     $                W, 0, RW, LW, IW, INFO )
+     $                 A, 1, B, 1, R1, R2, U, 1, V, 1, 9.9E9,
+     $                 W, LW, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
-         INFOT = 22
+         INFOT = 21
          CALL CGGQRCS( 'N', 'N', 'N', 0, 0, 0, I, SWAPPED,
-     $                A, 1, B, 1, R1, R2, U, 1, V, 1,
-     $                W, LW, RW, 0, IW, INFO )
+     $                 A, 1, B, 1, R1, R2, U, 1, V, 1, SCALE,
+     $                 W, 0, RW, LW, IW, INFO )
          CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
-         NT = NT + 12
+         INFOT = 23
+         CALL CGGQRCS( 'N', 'N', 'N', 0, 0, 0, I, SWAPPED,
+     $                 A, 1, B, 1, R1, R2, U, 1, V, 1, SCALE,
+     $                 W, LW, RW, 0, IW, INFO )
+         CALL CHKXER( 'CGGQRCS', INFOT, NOUT, LERR, OK )
+         NT = NT + 13
 *
 *        CGGQRF
 *
