@@ -347,7 +347,7 @@
       INTEGER            I, J, K, K1, LMAX, IG, IG11, IG21, IG22,
      $                   IVT, IVT12, LDG, LDX, LDVT, LWKMIN, LWKOPT
       REAL               BASE, NORMA, NORMB, NORMG, TOL, ULP, UNFL,
-     $                   THETA, IOTA, W, EXP_MAX, POWER_MAX
+     $                   THETA, IOTA, TANIOTA, W, EXP_MAX, POWER_MAX
 *     ..
 *     .. External Functions ..
       LOGICAL            LSAME
@@ -504,7 +504,7 @@
          ELSE
             W = POWER_MAX
          ENDIF
-*
+*        Note that norm(A) <= W*norm(A) <= norm(B)
          CALL SLASCL( 'G', -1, -1, 1.0E0, W, M, N, A, LDA, INFO )
          IF ( INFO.NE.0 ) THEN
             RETURN
@@ -520,7 +520,11 @@
 *
 *     Compute the Frobenius norm of matrix G
 *
-      NORMG = NORMB * SQRT( 1.0E0 + ( W * (NORMA/NORMB) )**2 )
+      IF( NORMB.GT.UNFL ) THEN
+         NORMG = NORMB * SQRT( 1.0E0 + ( (W*NORMA)/NORMB )**2 )
+      ELSE
+         NORMG = NORMB * SQRT( 1.0E0 + 1.0E0 )
+      END IF
 *
 *     Get machine precision and set up threshold for determining
 *     the effective numerical rank of the matrix G.
@@ -639,7 +643,13 @@
             END IF
          ELSE
 *           iota comes in the greek alphabet after theta
-            IOTA = ATAN( W * TAN( THETA ) )
+            TANIOTA = W * TAN( THETA )
+            IF( TANIOTA.LE.SLAMCH( 'Overflow threshold' ) ) THEN
+               IOTA = ATAN( TANIOTA )
+            ELSE
+*              IOTA = pi/2
+               IOTA = 2 * ATAN( 1.E0 )
+            ENDIF
 *           ensure sine, cosine divisor is far away from zero
 *           w is a power of two and will cause no trouble
             IF( SIN( IOTA ) .GE. COS( IOTA ) ) THEN
