@@ -109,6 +109,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_2x2, Number, types)
 	caller.B = B;
 
 	auto ret = caller();
+
 	check_results(ret, A, B, caller);
 
 	BOOST_CHECK_EQUAL( caller.rank, 2 );
@@ -133,6 +134,38 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_simple_1_2_3, Number, types)
 
 	check_results(ret, A, B, caller);
 	BOOST_CHECK_EQUAL( caller.rank, 2 );
+}
+
+
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(
+	preprocessing, Number, types)
+{
+	for(auto m = std::size_t{1}; m < std::size_t{3}; ++m) {
+		for(auto n = std::size_t{2}; n < std::size_t{6}; ++n) {
+			for(auto p = std::size_t{1}; p < std::size_t{3}; ++p) {
+				for(auto row_a = std::size_t{0}; row_a < m; ++row_a) {
+					for(auto row_b = std::size_t{0}; row_b < p; ++row_b) {
+						auto caller = ggqrcs::Caller<Number>(m, n, p);
+						auto A = caller.A;
+						auto B = caller.B;
+
+						A(row_a,0) = 3;
+						if(n > 1) {
+							B(row_b,1) = 4;
+						}
+
+						caller.A = A;
+						caller.B = B;
+
+						auto ret = caller();
+
+						check_results(ret, A, B, caller);
+					}
+				}
+			}
+		}
+	}
 }
 
 
