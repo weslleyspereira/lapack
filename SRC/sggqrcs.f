@@ -730,6 +730,26 @@
          CALL SLAPMT( .FALSE., L, N, WORK( 2 ), LDX, IWORK )
       END IF
 *
+*     Fix column order of U2
+*     Because of the QR decomposition in the pre-processing, the first
+*     rank(B) columns of U2 are a basis of range(B) but for matrix B,
+*     the CS values are in ascending order. If B is singular, then the
+*     first P - rank(B) columns should be a basis for the complement of
+*     range(B). For this reason, the columns must be re-ordered.
+*
+      IF( PREPB.AND.WANTU2 ) THEN
+         DO I = 1, ROWSB
+            IWORK( I ) = P - ROWSB + I
+         ENDDO
+         DO I = ROWSB + 1, P - ROWSB
+            IWORK( I ) = I
+         ENDDO
+         DO I = P - ROWSB + 1, P
+            IWORK( I ) = I - (P - ROWSB)
+         ENDDO
+         CALL SLAPMT( .FALSE., P, P, U2, LDU2, IWORK )
+      ENDIF
+*
 *     Adjust generalized singular values for matrix scaling
 *     Compute sine, cosine values
 *     Prepare row scaling of X
