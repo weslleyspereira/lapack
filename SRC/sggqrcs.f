@@ -767,6 +767,14 @@
             BETA( I ) = ACOS( 0.0E0 )
          ENDDO
       ENDIF
+      IF( PREPB ) THEN
+         DO I = K - KP, 1, -1
+            BETA( KP + I ) = BETA( I )
+         ENDDO
+         DO I = 1, K - KP
+            BETA( I ) = 0.0E0
+         ENDDO
+      ENDIF
 *         DO I = KP, 1, -1
 *            BETA( K1P + I ) = BETA( I )
 *         ENDDO
