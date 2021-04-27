@@ -399,15 +399,18 @@ struct Caller
 		BOOST_VERIFY( ldu2 >= p );
 		BOOST_VERIFY( !std::isnan(tol) );
 		BOOST_VERIFY( tol <= 1 );
+	}
 
-		auto nan = tools::not_a_number<Number>::value;
+
+	Integer operator() ()
+	{
+		constexpr auto nan = tools::not_a_number<Number>::value;
 
 		// query workspace size
 		auto jobu1 = bool2lapackjob(compute_u1_p);
 		auto jobu2 = bool2lapackjob(compute_u2_p);
 		auto jobx = bool2lapackjob(compute_x_p);
 		auto lwork_opt_f = nan;
-		auto rank = Integer{-1};
 		auto ret = lapack::xGGQRCS(
 			jobu1, jobu2, jobx, m, n, p, &rank, &swapped_p,
 			&A(0, 0), lda, &B(0, 0), ldb,
@@ -423,14 +426,7 @@ struct Caller
 
 		work.resize( lwork_opt );
 		std::fill( work.begin(), work.end(), nan );
-	}
 
-
-	Integer operator() ()
-	{
-		auto jobu1 = bool2lapackjob(compute_u1_p);
-		auto jobu2 = bool2lapackjob(compute_u2_p);
-		auto jobx = bool2lapackjob(compute_x_p);
 		return lapack::xGGQRCS(
 			jobu1, jobu2, jobx, m, n, p, &rank, &swapped_p,
 			&A(0, 0), lda, &B(0, 0), ldb,
