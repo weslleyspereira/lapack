@@ -739,16 +739,22 @@
 *     first P - rank(B) columns should be a basis for the complement of
 *     range(B). For this reason, the columns must be re-ordered.
 *
-      IF( PREPB.AND.WANTU2 ) THEN
+      IF( PREPB .AND. WANTU2 .AND. ROWSB.LT.P ) THEN
          DO I = 1, ROWSB
             IWORK( I ) = P - ROWSB + I
          ENDDO
-         DO I = ROWSB + 1, P - ROWSB
-            IWORK( I ) = I
-         ENDDO
-         DO I = P - ROWSB + 1, P
-            IWORK( I ) = I - (P - ROWSB)
-         ENDDO
+         IF( ROWSB.LE.P-ROWSB ) THEN
+            DO I = ROWSB + 1, P - ROWSB
+               IWORK( I ) = I
+            ENDDO
+            DO I = P - ROWSB + 1, P
+               IWORK( I ) = I - (P - ROWSB)
+            ENDDO
+         ELSE
+            DO I = ROWSB + 1, P
+               IWORK( I ) = I - ROWSB
+            ENDDO
+         ENDIF
          CALL SLAPMT( .FALSE., P, P, U2, LDU2, IWORK )
       ENDIF
 *
