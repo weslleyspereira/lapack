@@ -453,8 +453,10 @@
 *
       SWAPPED = .FALSE.
 *     TODO
-      PREPA = m.GT.n .OR. ( m.GT.0 )
-      PREPB = p.GT.n .OR. ( p.GT.0 )
+      PREPA = M.GT.N .OR. ( M.GT.0 )
+*     Do not pre-process B if N <= 1 because we cannot store the scalar
+*     factors from the QR factorization in the last column of B
+      PREPB = N.GT.1 .AND. ( P.GT.N .OR. ( P.GT.0 ) )
 *      PREPA = .FALSE.
       PREPB = .FALSE.
       L = 0
@@ -762,6 +764,7 @@
       K2P = MAX( L - ROWSA, 0 )
 *      PRINT*, "BETA", K, K1, K2
 *      PRINT*, "BETA", KP, K1P, K2P
+*      PRINT*, "BETA", BETA( 1 )
       IF( PREPA ) THEN
          DO I = KP + 1, K
             BETA( I ) = ACOS( 0.0E0 )
