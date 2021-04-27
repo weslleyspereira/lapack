@@ -577,7 +577,7 @@
          CALL SLASET( 'L', ROWSA, N, 0.0E0, 0.0E0, WORK( IG ), LDG )
          CALL SLACPY( 'U', ROWSA, N, A, LDA, WORK( IG ), LDG )
          CALL SLAPMT( .FALSE., ROWSA, N, WORK( IG ), LDG, IWORK )
-*        Initialize U1 althugh xORCSDB2BY1 will partially overwrite this
+*        Initialize U1 although xORCSDB2BY1 will partially overwrite this
          IF( WANTU1 ) THEN
              CALL SLASET( 'A', M, M, 0.0E0, 1.0E0, U1, LDU1 )
          ENDIF
@@ -609,12 +609,12 @@
          CALL SLASET( 'L', ROWSB, N, 0.0E0, 0.0E0, WORK( IG21 ), LDG )
          CALL SLACPY( 'U', ROWSB, N, B, LDB, WORK( IG21 ), LDG )
          CALL SLAPMT( .FALSE., ROWSB, N, WORK( IG21 ), LDG, IWORK )
+*        Initialize U2 although xORCSDB2BY1 will partially overwrite this
 *        Copy scalar factors because BETA is re-used later
 *        Copy into last column of B because it is never used
-         CALL SLACPY( 'A', ROWSB, 1, BETA, 1, B( N, 1 ), LDB )
-*        Initialize U2 althugh xORCSDB2BY1 will partially overwrite this
          IF( WANTU2 ) THEN
-             CALL SLASET( 'A', P, P, 0.0E0, 1.0E0, U2, LDU2 )
+            CALL SLACPY( 'A', ROWSB, 1, BETA, 1, B( 1, N ), LDB )
+            CALL SLASET( 'A', P, P, 0.0E0, 1.0E0, U2, LDU2 )
          ENDIF
       ELSE
          CALL SLACPY( 'A', P, N, B, LDB, WORK( IG21 ), LDG )
@@ -699,7 +699,7 @@
       ENDIF
 *
       IF( PREPB.AND.WANTU2 ) THEN
-         CALL SORMQR( 'L', 'N', P, P, ROWSB, B, LDB, B( N, 1 ),
+         CALL SORMQR( 'L', 'N', P, P, ROWSB, B, LDB, B( 1, N ),
      $           U2, LDU2, WORK, IVT, INFO )
          IF( INFO.NE.0 ) THEN
             RETURN
