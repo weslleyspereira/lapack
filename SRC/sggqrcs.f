@@ -360,9 +360,11 @@
 *  =====================================================================
 *
 *     .. Local Scalars ..
-      LOGICAL            WANTU1, WANTU2, WANTX, LQUERY
-      INTEGER            I, J, K, K1, LMAX, IG, IG11, IG21, IG22,
-     $                   IVT, IVT12, LDG, LDX, LDVT, LWKMIN, LWKOPT
+      LOGICAL            PREPA, PREPB, WANTU1, WANTU2, WANTX, LQUERY
+      INTEGER            I, J, K, K1, K2,KP, LMAX, IG, IG11, IG21, IG22,
+     $                   K2P, K1P,
+     $                   IVT, IVT12, LDG, LDX, LDVT, LWKMIN, LWKOPT,
+     $                   ROWSA, ROWSB
       REAL               BASE, NORMA, NORMB, NORMG, ABSTOL, ULP, UNFL,
      $                   THETA, IOTA, W
 *     ..
@@ -373,12 +375,17 @@
 *     ..
 *     .. External Subroutines ..
       EXTERNAL           SGEMM, SGEQP3, SLACPY, SLAPMT, SLASCL,
-     $                   SLASET, SORGQR, SORCSD2BY1, XERBLA
+     $                   SLASET, SORGQR, SORCSD2BY1, SORMQR, XERBLA
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          COS, MAX, MIN, SIN, SQRT
 *     ..
 *     .. Executable Statements ..
+*
+*     IWORK stores the column permutations computed by xGEQP3.
+*     Columns J where IWORK( J ) is non-zero are permuted to the front
+*     so IWORK must be set to zero before every call to xGEQP3.
+*
 *
 *     Decode and test the input parameters
 *
@@ -445,14 +452,31 @@
 *     Initialize variables
 *
       SWAPPED = .FALSE.
+*     TODO
+      PREPA = m.GT.n .OR. ( m.GT.0 )
+      PREPB = p.GT.n .OR. ( p.GT.0 )
+*      PREPA = .FALSE.
+      PREPB = .FALSE.
       L = 0
 *     The leading dimension must never be zero
+      ROWSA = M
+      IF( PREPA ) THEN
+         ROWSA = MIN( M, N )
+      ENDIF
+      ROWSB = P
+      IF( PREPB ) THEN
+         ROWSB = MIN( P, N )
+      ENDIF
       LDG = MAX( M + P, 1 )
       LDVT = N
-      LMAX = MIN( M + P, N )
+      LMAX = MIN( ROWSA + ROWSB, N )
       IG = 1
-      IG11 = 1
-      IG21 = M + 1
+*     IGxx are blocks of the full rank, upper triangular factor of QR
+*     factorization of G to be copied into A, B
+*     G11 is upper left M X M block
+      IG11 = IG
+      IG21 = IG11 + M
+*     Rank of A is ignored because only its dimension matters
       IG22 = LDG * M + M + 1
       IVT = LDG * N + 2
       IVT12 = IVT + LDVT * M
@@ -471,19 +495,19 @@
          LWKMIN = 0
          LWKOPT = 0
 *
-         CALL SGEQP3( M + P, N, WORK( IG ), LDG, IWORK, ALPHA, WORK, -1,
-     $                INFO )
+         CALL SGEQP3( ROWSA + ROWSB, N, WORK( IG ), LDG, IWORK, BETA,
+     $                WORK, -1, INFO )
          LWKMIN = MAX( LWKMIN, 3 * N + 1 )
          LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) )
 *
-         CALL SORGQR( M + P, LMAX, LMAX, WORK( IG ), LDG, ALPHA, WORK,
-     $                -1, INFO )
+         CALL SORGQR( ROWSA + ROWSB, LMAX, LMAX, WORK( IG ), LDG, BETA,
+     $                WORK, -1, INFO )
          LWKMIN = MAX( LWKMIN, LMAX )
          LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) )
 *
-         CALL SORCSD2BY1( JOBU1, JOBU2, JOBX, M + P, M, LMAX,
+         CALL SORCSD2BY1( JOBU1, JOBU2, JOBX, ROWSA + ROWSB, ROWSA,LMAX,
      $                    WORK( IG ), LDG, WORK( IG ), LDG,
-     $                    ALPHA,
+     $                    BETA,
      $                    U1, LDU1, U2, LDU2, WORK( IVT ), LDVT,
      $                    WORK, -1, IWORK, INFO )
          LWKMIN = MAX( LWKMIN, INT( WORK( 1 ) ) )
@@ -516,43 +540,94 @@
          LDVT = 0
       END IF
 *
-*     Scale matrix A such that norm(A) \approx norm(B)
+*     Select scaling factor W such that norm(A) \approx norm(B)
 *
       IF( NORMA.EQ.0.0E0 ) THEN
          W = 1.0E0
       ELSE
          BASE = SLAMCH( 'B' )
          W = BASE ** INT( LOG( NORMB / NORMA ) / LOG( BASE ) )
+      END IF
 *
+*     Attempt to remove unnecessary matrix rows
+*     Copy matrices A, B or their full-rank factors, respectively, into
+*     the LDG x N matrix G
+*
+      IF( PREPA ) THEN
+         IWORK( 1:N ) = 0
+         CALL SGEQP3( M, N, A, LDA, IWORK, ALPHA, WORK, LWORK, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         END IF
+*        Determine rank of A
+         ROWSA = 0
+         ABSTOL = TOL * MAX( M, N ) * MAX( NORMA, UNFL )
+         DO I = 1, MIN( M, N )
+            IF( ABS( A( I, I ) ).LE.ABSTOL ) THEN
+               EXIT
+            END IF
+            ROWSA = ROWSA + 1
+         END DO
+         IG21 = IG11 + ROWSA
+*        Scale, copy full rank part into G
+         CALL SLASCL( 'U', -1, -1, 1.0E0, W, ROWSA, N, A, LDA, INFO )
+         IF ( INFO.NE.0 ) THEN
+            RETURN
+         END IF
+         CALL SLASET( 'L', ROWSA, N, 0.0E0, 0.0E0, WORK( IG ), LDG )
+         CALL SLACPY( 'U', ROWSA, N, A, LDA, WORK( IG ), LDG )
+         CALL SLAPMT( .FALSE., ROWSA, N, WORK( IG ), LDG, IWORK )
+*        Initialize U1 althugh xORCSDB2BY1 will partially overwrite this
+         IF( WANTU1 ) THEN
+             CALL SLASET( 'A', M, M, 0.0E0, 1.0E0, U1, LDU1 )
+         ENDIF
+      ELSE
          CALL SLASCL( 'G', -1, -1, 1.0E0, W, M, N, A, LDA, INFO )
          IF ( INFO.NE.0 ) THEN
             RETURN
          END IF
+         CALL SLACPY( 'A', M, N, A, LDA, WORK( IG11 ), LDG )
       END IF
 *
-*     Copy matrices A, B into the (M+P) x N matrix G
-*
-      CALL SLACPY( 'A', M, N, A, LDA, WORK( IG11 ), LDG )
-      CALL SLACPY( 'A', P, N, B, LDB, WORK( IG21 ), LDG )
+      IF( PREPB ) THEN
+         IWORK( 1:N ) = 0
+         CALL SGEQP3( P, N, B, LDB, IWORK, BETA,
+     $                WORK( IVT ), LWORK - IVT + 1, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         END IF
+*        Determine rank
+         ROWSB = 0
+         ABSTOL = TOL * MAX( P, N ) * MAX( NORMB, UNFL )
+         DO I = 1, MIN( P, N )
+            IF( ABS( B( I, I ) ).LE.ABSTOL ) THEN
+               EXIT
+            END IF
+            ROWSB = ROWSB + 1
+         END DO
+*        Copy full rank part into G
+         CALL SLASET( 'L', ROWSB, N, 0.0E0, 0.0E0, WORK( IG21 ), LDG )
+         CALL SLACPY( 'U', ROWSB, N, B, LDB, WORK( IG21 ), LDG )
+         CALL SLAPMT( .FALSE., ROWSB, N, WORK( IG21 ), LDG, IWORK )
+*        Copy scalar factors because BETA is re-used later
+*        Copy into last column of B because it is never used
+         CALL SLACPY( 'A', ROWSB, 1, BETA, 1, B( N, 1 ), LDB )
+*        Initialize U2 althugh xORCSDB2BY1 will partially overwrite this
+         IF( WANTU2 ) THEN
+             CALL SLASET( 'A', P, P, 0.0E0, 1.0E0, U2, LDU2 )
+         ENDIF
+      ELSE
+         CALL SLACPY( 'A', P, N, B, LDB, WORK( IG21 ), LDG )
+      END IF
 *
 *     Compute the Frobenius norm of matrix G
 *
       NORMG = NORMB * SQRT( 1.0E0 + ( ( W * NORMA ) / NORMB )**2 )
 *
-*     Set up threshold for determining the effective numerical rank of
-*     the matrix G.
-*
-      ABSTOL = TOL * MAX( M + P, N ) * MAX( NORMG, UNFL )
-*
-*     IWORK stores the column permutations computed by SGEQP3.
-*     Columns J where IWORK( J ) is non-zero are permuted to the front
-*     so we set the all entries to zero here.
-*
-      IWORK( 1:N ) = 0
-*
 *     Compute the QR factorization with column pivoting GΠ = Q1 R1
 *
-      CALL SGEQP3( M + P, N, WORK( IG ), LDG, IWORK, ALPHA,
+      IWORK( 1:N ) = 0
+      CALL SGEQP3( ROWSA + ROWSB, N, WORK( IG ), LDG, IWORK, BETA,
      $             WORK( IVT ), LWORK - IVT + 1, INFO )
       IF( INFO.NE.0 ) THEN
          RETURN
@@ -560,7 +635,8 @@
 *
 *     Determine the rank of G
 *
-      DO I = 1, MIN( M + P, N )
+      ABSTOL = TOL * MAX( ROWSA + ROWSB, N ) * MAX( NORMG, UNFL )
+      DO I = 1, MIN( ROWSA + ROWSB, N )
          IF( ABS( WORK( (I-1) * LDG + I ) ).LE.ABSTOL ) THEN
             EXIT
          END IF
@@ -585,20 +661,16 @@
 *
       IF( WANTX ) THEN
          IF( L.LE.M ) THEN
-             CALL SLACPY( 'U', L, N, WORK( IG ), LDG, A, LDA )
-             CALL SLASET( 'L', L - 1, N, 0.0E0, 0.0E0, A( 2, 1 ), LDA )
+            CALL SLACPY( 'U', L, N, WORK( IG ), LDG, A, LDA )
          ELSE
-             CALL SLACPY( 'U', M, N, WORK( IG ), LDG, A, LDA )
-             CALL SLACPY( 'U', L - M, N - M, WORK( IG22 ), LDG, B, LDB )
-*
-             CALL SLASET( 'L', M - 1, N, 0.0E0, 0.0E0, A( 2, 1 ), LDA )
-             CALL SLASET( 'L', L-M-1, N, 0.0E0, 0.0E0, B( 2, 1 ), LDB )
+            CALL SLACPY( 'U', M, N, WORK( IG ), LDG, A, LDA )
+            CALL SLACPY( 'U', L - M, N - M, WORK( IG22 ), LDG, B, LDB )
          END IF
       END IF
 *
 *     Explicitly form Q1 so that we can compute the CS decomposition
 *
-      CALL SORGQR( M + P, L, L, WORK( IG ), LDG, ALPHA,
+      CALL SORGQR( ROWSA + ROWSB, L, L, WORK( IG ), LDG, BETA,
      $             WORK( IVT ), LWORK - IVT + 1, INFO )
       IF ( INFO.NE.0 ) THEN
          RETURN
@@ -606,11 +678,9 @@
 *
 *     Compute the CS decomposition of Q1( :, 1:L )
 *
-      K = MIN( M, P, L, M + P - L )
-      K1 = MAX( L - P, 0 )
-      CALL SORCSD2BY1( JOBU1, JOBU2, JOBX, M + P, M, L,
+      CALL SORCSD2BY1( JOBU1, JOBU2, JOBX, ROWSA + ROWSB, ROWSA, L,
      $                 WORK( IG11 ), LDG, WORK( IG21 ), LDG,
-     $                 ALPHA,
+     $                 BETA,
      $                 U1, LDU1, U2, LDU2, WORK( IVT ), LDVT,
      $                 WORK( IVT + LDVT*N ), LWORK - IVT - LDVT*N + 1,
      $                 IWORK( N + 1 ), INFO )
@@ -618,18 +688,40 @@
          RETURN
       END IF
 *
+*     Apply orthogonal factors of QR decomposition of A, B to U1, U2
+*
+      IF( PREPA.AND.WANTU1 ) THEN
+         CALL SORMQR( 'L', 'N', M, M, ROWSA, A, LDA, ALPHA, U1, LDU1,
+     $           WORK, IVT, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         ENDIF
+      ENDIF
+*
+      IF( PREPB.AND.WANTU2 ) THEN
+         CALL SORMQR( 'L', 'N', P, P, ROWSB, B, LDB, B( N, 1 ),
+     $           U2, LDU2, WORK, IVT, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         ENDIF
+      ENDIF
+*
 *     Compute X = V^T R1( 1:L, : ) and adjust for matrix scaling
 *
       IF( WANTX ) THEN
          LDX = L
          IF ( L.LE.M ) THEN
+            CALL SLASET( 'L', L - 1, N, 0.0E0, 0.0E0, A( 2, 1 ), LDA )
             CALL SGEMM( 'N', 'N', L, N, L,
      $                  1.0E0, WORK( IVT ), LDVT, A, LDA,
      $                  0.0E0, WORK( 2 ), LDX )
          ELSE
+            CALL SLASET( 'L', M - 1, N, 0.0E0, 0.0E0, A( 2, 1 ), LDA )
             CALL SGEMM( 'N', 'N', L, N, M,
      $                  1.0E0, WORK( IVT ), LDVT, A, LDA,
      $                  0.0E0, WORK( 2 ), LDX )
+*
+            CALL SLASET( 'L', L-M-1, N, 0.0E0, 0.0E0, B( 2, 1 ), LDB )
             CALL SGEMM( 'N', 'N', L, N - M, L - M,
      $                  1.0E0, WORK( IVT12 ), LDVT, B, LDB,
      $                  1.0E0, WORK( L*M + 2 ), LDX )
@@ -642,8 +734,29 @@
 *     Compute sine, cosine values
 *     Prepare row scaling of X
 *
+      K = MIN( M, P, L, M + P - L )
+      K1 = MAX( L - P, 0 )
+      K2 = MAX( L - M, 0 )
+      KP = MIN( ROWSA, ROWSB, L, ROWSA + ROWSB - L )
+      K1P = MAX( L - ROWSB, 0 )
+      K2P = MAX( L - ROWSA, 0 )
+*      PRINT*, "BETA", K, K1, K2
+*      PRINT*, "BETA", KP, K1P, K2P
+      IF( PREPA ) THEN
+         DO I = KP + 1, K
+            BETA( I ) = ACOS( 0.0E0 )
+         ENDDO
+      ENDIF
+*         DO I = KP, 1, -1
+*            BETA( K1P + I ) = BETA( I )
+*         ENDDO
+**
+*         BETA( 1:K1P ) = 0.0E0
+*         BETA( K1P+KP+1:K1P+KP+K2P ) = ACOS( 0.0E0 )
+*      ENDIF
+*
       DO I = 1, K
-         THETA = ALPHA( I )
+         THETA = BETA( I )
 *        Do not adjust singular value if THETA is greater
 *        than pi/2 (infinite singular values won't change)
          IF( COS( THETA ).LE.0.0E0 ) THEN
