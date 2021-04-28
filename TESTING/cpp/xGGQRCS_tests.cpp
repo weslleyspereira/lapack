@@ -163,6 +163,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 
 						caller.A = A;
 						caller.B = B;
+						caller.hint_preprocess_a = 'Y';
+						caller.hint_preprocess_b = 'Y';
 
 						auto ret = caller();
 
@@ -181,31 +183,38 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 )
 {
 	using Real = typename tools::real_from<Number>::type;
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
 
+	constexpr auto nan = tools::not_a_number<Number>::value;
+	constexpr auto nan_real = tools::not_a_number<Real>::value;
 	auto m = 17;
 	auto n = 13;
 	auto p = 8;
+	auto hpa = '?';
+	auto hpb = '?';
 	auto rank = -1;
 	auto swapped_p = false;
-	auto a = Real{1};
-	auto b = Real{2};
-	auto alpha = Real{-1};
-	auto beta = Real{-1};
-	auto u1 = Real{0};
-	auto u2 = Real{0};
+	auto a = Matrix(m, n, 1);
+	auto b = Matrix(p, n, 1);
+	auto alpha = std::vector<Real>(n, nan_real);
+	auto beta = std::vector<Real>(n, nan_real);
+	auto u1 = Matrix(m, m, nan);
+	auto u2 = Matrix(p, p, nan);
+	auto x = Matrix(n, n, nan);
 	auto tol = Real{0};
 	auto work = Real{0};
 	auto iwork = -1;
 	auto info = lapack::xGGQRCS(
-		'Y', 'Y', 'Y', m, n, p, &rank, &swapped_p,
-		&a, m, &b, p,
-		&alpha, &beta,
-		&u1, m, &u2, p,
+		'Y', 'Y', 'Y', &hpa, &hpb,
+		m, n, p, &rank, &swapped_p,
+		&a(0, 0), m, &b(0, 0), p,
+		&alpha[0], &beta[0],
+		&u1(0, 0), m, &u2(0, 0), p, &x(0, 0), m+p,
 		&tol,
 		&work, 1, &iwork
 	);
 
-	BOOST_CHECK_EQUAL(info, -20);
+	BOOST_CHECK_EQUAL(info, -25);
 }
 
 
@@ -443,6 +452,8 @@ void xGGQRCS_test_zero_dimensions_impl(
 	constexpr auto real_nan = tools::not_a_number<Real>::value;
 	constexpr auto one = std::size_t{1};
 
+	auto hpa = '?';
+	auto hpb = '?';
 	auto k = std::max(std::min(m + p, n), one);
 	auto rank = Integer{-1};
 	auto swapped_p = false;
@@ -456,16 +467,19 @@ void xGGQRCS_test_zero_dimensions_impl(
 	auto U1 = Matrix(ldu1, std::max(m, one), nan);
 	auto ldu2 = std::max(p, one);
 	auto U2 = Matrix(ldu2, std::max(p, one), nan);
+	auto ldx = std::max(std::min(m + p, n), one);
+	auto X = Matrix(ldx, std::max(n, one), nan);
 	auto tol = Real{0};
 	// this must be large enough not to trigger the workspace size check
 	auto lwork = std::max(4 * (m + p) * n, std::size_t{128});
 	auto work = std::vector<Number>(lwork, nan);
 	auto iwork = std::vector<Integer>(lwork, -1);
 	auto ret = lapack::xGGQRCS(
-		'Y', 'Y', 'N', m, n, p, &rank, &swapped_p,
+		'Y', 'Y', 'N', &hpa, &hpb,
+		m, n, p, &rank, &swapped_p,
 		&A(0, 0), lda, &B(0, 0), ldb,
 		&alpha[0], &beta[0],
-		&U1(0, 0), 1, &U2(0, 0), 1,
+		&U1(0, 0), 1, &U2(0, 0), 1, &X(0, 0), 1,
 		&tol,
 		&work[0], lwork, &iwork[0]
 	);
@@ -594,6 +608,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(xGGQRCS_test_rectangular_input, Number, types)
 
 				caller.A = A;
 				caller.B = B;
+				caller.hint_preprocess_a = 'N';
+				caller.hint_preprocess_b = 'N';
 
 				auto ret = caller();
 				check_results(ret, A, B, caller);
