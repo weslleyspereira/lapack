@@ -732,7 +732,7 @@
 *     Determine the rank of G
 *
       RANK = 0
-      DO I = 0, RANKMAXG - 1
+      DO I = 0, MIN( ROWSA + ROWSB, N ) - 1
          IF( ABS( WORK( IG + ( I * LDG + I ) ) ).LE.ABSTOLG ) THEN
             EXIT
          END IF
