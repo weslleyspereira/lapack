@@ -716,7 +716,11 @@
 *
 *     Compute the Frobenius norm of matrix G
 *
-      NORMG = NORMB * SQRT( 1.0E0 + ( ( W * NORMA ) / NORMB )**2 )
+      IF( NORMB.LE.UNFL ) THEN
+         NORMG = W * NORMA
+      ELSE
+         NORMG = NORMB * SQRT( 1.0E0 + ( ( W * NORMA ) / NORMB )**2 )
+      ENDIF
       ABSTOLG = TOL * MAX( ROWSA + ROWSB, N ) * MAX( NORMG, UNFL )
 *
       IF( ISNAN(NORMG) ) THEN
