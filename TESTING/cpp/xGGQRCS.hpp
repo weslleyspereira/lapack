@@ -335,13 +335,15 @@ struct Caller
 	bool compute_u1_p = true;
 	bool compute_u2_p = true;
 	bool compute_x_p = true;
+	char hint_preprocess_a = '?';
+	char hint_preprocess_b = '?';
 	Integer rank = -1;
 	bool swapped_p = false;
 	std::size_t m, n, p;
-	std::size_t lda, ldb, ldu1, ldu2;
+	std::size_t lda, ldb, ldu1, ldu2, ldx;
 	Real tol;
 	Matrix A, B;
-	Matrix U1, U2;
+	Matrix U1, U2, X;
 	Vector<Number> alpha, beta;
 	Vector<Number> work;
 	Vector<Integer> iwork;
@@ -380,16 +382,19 @@ struct Caller
 		n(n_),
 		p(p_),
 		lda(lda_), ldb(ldb_),
-		ldu1(ldu1_), ldu2(ldu2_),
+		ldu1(ldu1_), ldu2(ldu2_), ldx(std::min(m_+p_, n_)),
 		tol(-1),
 		A(lda, n, 0),
 		B(ldb, n, 0),
 		U1(ldu1, m, tools::not_a_number<Number>::value),
 		U2(ldu2, p, tools::not_a_number<Number>::value),
+		X(ldx, n, tools::not_a_number<Number>::value),
 		alpha(n, tools::not_a_number<Real>::value),
 		beta(n, tools::not_a_number<Real>::value),
 		iwork(m + n + p, -1)
 	{
+		auto rank_max_g = std::min(std::min(m, n) + std::min(p, n), n);
+
 		BOOST_VERIFY( m > 0 );
 		BOOST_VERIFY( n > 0 );
 		BOOST_VERIFY( p > 0 );
@@ -397,6 +402,7 @@ struct Caller
 		BOOST_VERIFY( ldb >= p );
 		BOOST_VERIFY( ldu1 >= m );
 		BOOST_VERIFY( ldu2 >= p );
+		BOOST_VERIFY( ldx >= rank_max_g );
 		BOOST_VERIFY( !std::isnan(tol) );
 		BOOST_VERIFY( tol <= 1 );
 	}
@@ -412,10 +418,12 @@ struct Caller
 		auto jobx = bool2lapackjob(compute_x_p);
 		auto lwork_opt_f = nan;
 		auto ret = lapack::xGGQRCS(
-			jobu1, jobu2, jobx, m, n, p, &rank, &swapped_p,
+			jobu1, jobu2, jobx,
+			&hint_preprocess_a, &hint_preprocess_b,
+			m, n, p, &rank, &swapped_p,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
-			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
+			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &X(0, 0), ldx,
 			&tol,
 			&lwork_opt_f, -1, &iwork(0) );
 		BOOST_REQUIRE_EQUAL( ret, 0 );
@@ -428,10 +436,12 @@ struct Caller
 		std::fill( work.begin(), work.end(), nan );
 
 		return lapack::xGGQRCS(
-			jobu1, jobu2, jobx, m, n, p, &rank, &swapped_p,
+			jobu1, jobu2, jobx,
+			&hint_preprocess_a, &hint_preprocess_b,
+			m, n, p, &rank, &swapped_p,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
-			&U1(0, 0), ldu1, &U2(0, 0), ldu2,
+			&U1(0, 0), ldu1, &U2(0, 0), ldu2, &X(0, 0), ldx,
 			&tol,
 			&work(0), work.size(), &iwork(0)
 		);
@@ -568,6 +578,8 @@ template<typename Number>
 ublas::matrix<Number, ublas::column_major> copy_X(
 	const Caller<Number>& caller)
 {
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
+
 	auto m = caller.m;
 	auto n = caller.n;
 	auto p = caller.p;
@@ -576,9 +588,7 @@ ublas::matrix<Number, ublas::column_major> copy_X(
 	BOOST_VERIFY(r <= std::min(m+p, n));
 	BOOST_VERIFY(1 + r*n <= caller.work.size());
 
-	auto X = ublas::matrix<Number, ublas::column_major>(r, n);
-
-	std::copy(&caller.work(1), &caller.work(1+r*n), X.data().begin());
+	auto X = Matrix(ublas::subrange(caller.X, 0, r, 0, n));
 
 	return X;
 }
@@ -595,17 +605,29 @@ std::pair<Real, Real> check_results(
 	const Matrix& A, const Matrix& B,
 	const Caller<Number> caller)
 {
+	auto hint_pa = caller.hint_preprocess_a;
+	auto hint_pb = caller.hint_preprocess_b;
+
+	BOOST_REQUIRE( hint_pa == 'Y' || hint_pa == 'N' );
+	BOOST_REQUIRE( hint_pb == 'Y' || hint_pb == 'N' );
+
+	auto m = caller.m;
+	auto n = caller.n;
+	auto p = caller.p;
+	auto r = static_cast<std::size_t>(caller.rank);
+
+	BOOST_REQUIRE_LE(r, std::min(m+p, n));
+	BOOST_REQUIRE_LE(1 + r*n, caller.work.size());
+
 	auto f = [] (const Matrix& A, std::size_t m, std::size_t n) {
 		BOOST_VERIFY( A.size1() >= m );
 		BOOST_VERIFY( A.size2() == n );
 		return Matrix(ublas::subrange(A, 0, m, 0, n));
 	};
 
-	auto m = caller.m;
-	auto p = caller.p;
-	auto X = copy_X(caller);
 	auto U1 = f(caller.U1, m, m);
 	auto U2 = f(caller.U2, p, p);
+	auto X = f(caller.X, r, n);
 
 	return check_results(
 		ret,
@@ -614,8 +636,7 @@ std::pair<Real, Real> check_results(
 		caller.swapped_p,
 		caller.alpha,
 		caller.beta,
-		U1, U2,
-		X
+		U1, U2, X
 	);
 }
 
