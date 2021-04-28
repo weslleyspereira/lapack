@@ -758,39 +758,44 @@
          CALL SLAPMT( .FALSE., P, P, U2, LDU2, IWORK )
       ENDIF
 *
-*     Adjust generalized singular values for matrix scaling
-*     Compute sine, cosine values
-*     Prepare row scaling of X
+*     The pre-processing may reduce the number of angles that need to
+*     be computed by the CS decomposition. Add these angles to the list
+*     of angles.
 *
       K = MIN( M, P, L, M + P - L )
       K1 = MAX( L - P, 0 )
       K2 = MAX( L - M, 0 )
+*     Keep in mind the pre-processing might be disabled before
+*     "optimizing" the expressions below
       KP = MIN( ROWSA, ROWSB, L, ROWSA + ROWSB - L )
       K1P = MAX( L - ROWSB, 0 )
       K2P = MAX( L - ROWSA, 0 )
-*      PRINT*, "BETA", K, K1, K2
-*      PRINT*, "BETA", KP, K1P, K2P
-*      PRINT*, "BETA", BETA( 1 )
-      IF( PREPA ) THEN
-         DO I = KP + 1, K
-            BETA( I ) = ACOS( 0.0E0 )
+*      PRINT*, "K , K1 , K2 ", K, K1, K2
+*      PRINT*, "K', K1', K2'", KP, K1P, K2P
+*     assert!(k == kp + k1p + k2p);
+      IF( K.NE.KP + K1P - K1 + K2P - K2 ) THEN
+        PRINT*, "k != k' + k1' - k1 + k2' - k2 !"
+        PRINT*, "K, K1, K2   ", K, K1, K2
+        PRINT*, "K', K1', K2'", KP, K1P, K2P
+        INFO = 100
+      ENDIF
+*
+      IF( K1P.GT.K1 ) THEN
+*        Copy backwards because of a possible overlap
+         DO I = KP, 1, -1
+            BETA( I + K1P - K1 ) = BETA( I )
+         ENDDO
+         BETA( 1:K1P-K1 ) = 0.0E0
+      ENDIF
+      IF( K2P.GT.K2 ) THEN
+         DO I = 1, K2P - K2
+            BETA( I + K1P - K1 + KP ) = ACOS( 0.0E0 )
          ENDDO
       ENDIF
-      IF( PREPB ) THEN
-         DO I = K - KP, 1, -1
-            BETA( KP + I ) = BETA( I )
-         ENDDO
-         DO I = 1, K - KP
-            BETA( I ) = 0.0E0
-         ENDDO
-      ENDIF
-*         DO I = KP, 1, -1
-*            BETA( K1P + I ) = BETA( I )
-*         ENDDO
-**
-*         BETA( 1:K1P ) = 0.0E0
-*         BETA( K1P+KP+1:K1P+KP+K2P ) = ACOS( 0.0E0 )
-*      ENDIF
+*
+*     Adjust generalized singular values for matrix scaling
+*     Compute sine, cosine values
+*     Prepare row scaling of X
 *
       DO I = 1, K
          THETA = BETA( I )
