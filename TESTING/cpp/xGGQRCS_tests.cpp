@@ -987,7 +987,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 	xGGQRCS_test_random_infinite, Number, types)
 {
 	constexpr auto min_dimension = std::size_t{1};
-	constexpr auto max_dimension = std::size_t{1000};
+	constexpr auto max_dimension = std::size_t{500};
 
 	auto master_seed = std::uintmax_t(std::time(nullptr));
 
@@ -1012,9 +1012,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 
 	while(true)
 	{
-		auto m = (dim_dist(gen) + 1) / 2;
+		auto m = dim_dist(gen);
 		auto n = dim_dist(gen);
-		auto p = (dim_dist(gen) + 1) / 2;
+		auto p = dim_dist(gen);
 		auto max_rank = (m + p <= n) ? m + p : n;
 
 		for(auto rank = std::size_t{0}; rank <= max_rank; ++rank, ++iteration)
