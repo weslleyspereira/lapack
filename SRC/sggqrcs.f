@@ -762,6 +762,8 @@
      $                   B, LDB )
          END IF
       END IF
+*     DEBUG
+      CALL SLASET( 'U', RANK, N, NAN, NAN, WORK( IG ), LDG )
 *
 *     Explicitly form Q1 so that we can compute the CS decomposition
 *
@@ -771,6 +773,8 @@
       IF ( INFO.NE.0 ) THEN
          RETURN
       END IF
+*     DEBUG
+      WORK( ITAUG:LWORK ) = NAN
 *
 *     Compute the CS decomposition of Q1( :, 1:RANK )
 *
@@ -783,6 +787,8 @@
       IF( INFO.NE.0 ) THEN
          RETURN
       END IF
+*     DEBUG
+      WORK( IG:LWORK ) = NAN
 *
 *     Apply orthogonal factors of QR decomposition of A, B to U1, U2
 *
