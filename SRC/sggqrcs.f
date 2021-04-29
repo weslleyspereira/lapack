@@ -776,11 +776,46 @@
 *     DEBUG
       WORK( ITAUG:LWORK ) = NAN
 *
+*     The pre-processing may reduce the number of angles that need to
+*     be computed by the CS decomposition:
+*     * angles 1, 2, ..., K1P-K1 are known to be zero,
+*     * angles K1P-K1+1, ..., K1P-K1+KP are computed by xORCSD2BY1,
+*     * angles K1P-K1+KP+1, ..., K are known to be pi/2.
+*
+*     It holds that
+*     * K = KP + (K1P - K1) + (K2P - K2),
+*     * RANK = K + K1 + K2 = KP + K1P + K2P
+*
+      K = MIN( M, P, RANK, M + P - RANK )
+      K1 = MAX( RANK - P, 0 )
+      K2 = MAX( RANK - M, 0 )
+*     Keep in mind the pre-processing might be disabled before
+*     "optimizing" the expressions below
+      KP = MIN( ROWSA, ROWSB, RANK, ROWSA + ROWSB - RANK )
+      K1P = MAX( RANK - ROWSB, 0 )
+      K2P = MAX( RANK - ROWSA, 0 )
+*      PRINT*, "K , K1 , K2 ", K, K1, K2
+*      PRINT*, "K', K1', K2'", KP, K1P, K2P
+*      PRINT*, "MNP         ", RANK, K + K1 + K2, KP + K1P + K2P
+*     assert!(k == kp + k1p + k2p);
+      IF( K.NE.KP + K1P - K1 + K2P - K2 ) THEN
+        PRINT*, "k != k' + k1' - k1 + k2' - k2 !"
+        PRINT*, "K, K1, K2   ", K, K1, K2
+        PRINT*, "K', K1', K2'", KP, K1P, K2P
+        INFO = 100
+        RETURN
+      ENDIF
+      IF( RANK.NE.KP + K1P + K2P) THEN
+        INFO = 99
+        CALL XERBLA( 'SGGQRCS', INFO )
+        RETURN
+      ENDIF
+*
 *     Compute the CS decomposition of Q1( :, 1:RANK )
 *
       CALL SORCSD2BY1( JOBU1, JOBU2, JOBX, ROWSA + ROWSB, ROWSA, RANK,
      $                 WORK( IG11 ), LDG, WORK( IG21 ), LDG,
-     $                 BETA,
+     $                 BETA( K1P - K1 + 1 ),
      $                 U1, LDU1, U2, LDU2, X, LDX,
      $                 WORK( ITAUG ), LWORK - ITAUG + 1,
      $                 IWORK( N + 1 ), INFO )
@@ -865,55 +900,37 @@
 *
       WORK( :LWORK ) = NAN
 *
-*     The pre-processing may reduce the number of angles that need to
-*     be computed by the CS decomposition. Add these angles to the list
-*     of angles.
-*
-      K = MIN( M, P, RANK, M + P - RANK )
-      K1 = MAX( RANK - P, 0 )
-      K2 = MAX( RANK - M, 0 )
-*     Keep in mind the pre-processing might be disabled before
-*     "optimizing" the expressions below
-      KP = MIN( ROWSA, ROWSB, RANK, ROWSA + ROWSB - RANK )
-      K1P = MAX( RANK - ROWSB, 0 )
-      K2P = MAX( RANK - ROWSA, 0 )
-*      PRINT*, "K , K1 , K2 ", K, K1, K2
-*      PRINT*, "K', K1', K2'", KP, K1P, K2P
-*     assert!(k == kp + k1p + k2p);
-      IF( K.NE.KP + K1P - K1 + K2P - K2 ) THEN
-        PRINT*, "k != k' + k1' - k1 + k2' - k2 !"
-        PRINT*, "K, K1, K2   ", K, K1, K2
-        PRINT*, "K', K1', K2'", KP, K1P, K2P
-        INFO = 100
-      ENDIF
-*
-      IF( K1P.GT.K1 ) THEN
-*        Copy backwards because of a possible overlap
-         DO I = KP, 1, -1
-            BETA( I + K1P - K1 ) = BETA( I )
-         ENDDO
-         BETA( 1:K1P-K1 ) = 0.0E0
-      ENDIF
-      IF( K2P.GT.K2 ) THEN
-         DO I = 1, K2P - K2
-            BETA( I + K1P - K1 + KP ) = ACOS( 0.0E0 )
-         ENDDO
-      ENDIF
-*
 *     Adjust generalized singular values for matrix scaling
 *     Compute sine, cosine values
 *     Prepare row scaling of X
 *
-      DO I = 1, K
+*     Reading hints:
+*     * the first K1 angles are known to be zero by the caller. thus,
+*       the sine, cosine, and row scaling information associated with
+*       the I-th angle, I = 1, 2, ..., RANK,
+*       * is not stored for I = 1, 2, ..., K1,
+*       * at index I - K1 for I = K1+1, K1+2, ..., K,
+*       * is not stored for K+1, K+2, ..., RANK.
+*     * row scaling factors for X will not be stored if they won't be
+*       used (e.g., because they are known to be one).
+*     * the row scaling factors for X will be computed irrespective of
+*       the value of WANTX. this improves readability.
+*     * the code below this paragraph is one large iteration of I from 1
+*       to K with different DO statements for the different cases
+      DO I = 1, K1P - K1
+         ALPHA( I ) = 1.0E0
+         BETA( I ) = 0.0E0
+*        DEBUG
+         WORK( I ) = NAN
+      ENDDO
+      DO I = K1P - K1 + 1, K1P - K1 + KP
          THETA = BETA( I )
 *        Do not adjust singular value if THETA is greater
 *        than pi/2 (infinite singular values won't change)
          IF( COS( THETA ).LE.0.0E0 ) THEN
             ALPHA( I ) = 0.0E0
             BETA( I ) = 1.0E0
-            IF( WANTX ) THEN
-               WORK( I ) = 1.0E0
-            END IF
+            WORK( I ) = 1.0E0
          ELSE
 *           iota comes in the greek alphabet after theta
             IOTA = ATAN( W * TAN( THETA ) )
@@ -922,26 +939,28 @@
             IF( SIN( IOTA ) .GE. COS( IOTA ) ) THEN
                ALPHA( I ) = ( SIN( IOTA ) / TAN( THETA ) ) / W
                BETA( I ) = SIN( IOTA )
-               IF( WANTX ) THEN
-                  WORK( I ) = SIN( THETA ) / SIN( IOTA )
-               END IF
+               WORK( I ) = SIN( THETA ) / SIN( IOTA )
             ELSE
                ALPHA( I ) = COS( IOTA )
                BETA( I ) = SIN( IOTA )
-               IF( WANTX ) THEN
-                  WORK( I ) = COS( THETA ) / COS( IOTA ) / W
-               END IF
+               WORK( I ) = COS( THETA ) / COS( IOTA ) / W
             END IF
          END IF
       END DO
+      DO I = K1P - K1 + KP + 1, K
+         ALPHA( I ) = 0.0E0
+         BETA( I ) = 1.0E0
+*        DEBUG
+         WORK( I ) = NAN
+      ENDDO
 *     Adjust rows of X for matrix scaling
       IF( WANTX ) THEN
          DO J = 1, N
-            DO I = 1, K1
+            DO I = 1, K1P
                X( I, J ) = X( I, J ) / W
             END DO
-            DO I = 1, K
-               X( I + K1, J ) = X( I + K1, J ) * WORK( I )
+            DO I = K1P + 1, K1P + KP
+               X( I, J ) = X( I, J ) * WORK( I - K1 )
             END DO
          END DO
       END IF
