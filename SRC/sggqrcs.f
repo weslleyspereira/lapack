@@ -789,7 +789,7 @@
 *     Apply orthogonal factors of QR decomposition of A, B to U1, U2
 *
       IF( PREPROCESSA .AND. WANTU1 ) THEN
-         CALL SORMQR( 'RANK', 'N', M, M, ROWSA, A, LDA,
+         CALL SORMQR( 'L', 'N', M, M, ROWSA, A, LDA,
      $                WORK( ITAUA ), U1, LDU1,
      $                WORK( IG ), LWORK - IG + 1, INFO )
          IF( INFO.NE.0 ) THEN
@@ -798,7 +798,7 @@
       ENDIF
 *
       IF( PREPROCESSB .AND. WANTU2 ) THEN
-         CALL SORMQR( 'RANK', 'N', P, P, ROWSB, B, LDB,
+         CALL SORMQR( 'L', 'N', P, P, ROWSB, B, LDB,
      $                WORK( ITAUB ), U2, LDU2,
      $                WORK( IG ), LWORK - IG + 1, INFO )
          IF( INFO.NE.0 ) THEN
