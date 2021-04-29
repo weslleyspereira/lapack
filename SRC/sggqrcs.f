@@ -790,31 +790,7 @@
 *     DEBUG
       WORK( IG:LWORK ) = NAN
 *
-*     Apply orthogonal factors of QR decomposition of A, B to U1, U2
-*
-      IF( PREPROCESSA .AND. WANTU1 ) THEN
-         CALL SORMQR( 'L', 'N', M, M, ROWSA, A, LDA,
-     $                WORK( ITAUA ), U1, LDU1,
-     $                WORK( IG ), LWORK - IG + 1, INFO )
-         IF( INFO.NE.0 ) THEN
-            RETURN
-         ENDIF
-      ENDIF
-*
-      IF( PREPROCESSB .AND. WANTU2 ) THEN
-         CALL SORMQR( 'L', 'N', P, P, ROWSB, B, LDB,
-     $                WORK( ITAUB ), U2, LDU2,
-     $                WORK( IG ), LWORK - IG + 1, INFO )
-         IF( INFO.NE.0 ) THEN
-            RETURN
-         ENDIF
-      ENDIF
-*
-*     Debug
-*
-      WORK( :LWORK ) = NAN
-*
-*     Compute X = V^T R1( 1:RANK, : ) and adjust for matrix scaling
+*     Compute X = V^T R1( 1:RANK, : )
 *
       IF( WANTX ) THEN
          IF ( RANK.LE.M ) THEN
@@ -838,31 +814,56 @@
          CALL SLAPMT( .FALSE., RANK, N, X, LDX, IWORK )
       END IF
 *
-*     Fix column order of U2
-*     Because of the QR decomposition in the pre-processing, the first
-*     rank(B) columns of U2 are a basis of range(B) but for matrix B,
-*     the CS values are in ascending order. If B is singular, then the
-*     first P - rank(B) columns should be a basis for the complement of
-*     range(B). For this reason, the columns must be re-ordered.
+*     Apply orthogonal factors of QR decomposition of A, B to U1, U2
 *
-      IF( PREPROCESSB .AND. WANTU2 .AND. ROWSB.LT.P ) THEN
-         DO I = 1, ROWSB
-            IWORK( I ) = P - ROWSB + I
-         ENDDO
-         IF( ROWSB.LE.P-ROWSB ) THEN
-            DO I = ROWSB + 1, P - ROWSB
-               IWORK( I ) = I
-            ENDDO
-            DO I = P - ROWSB + 1, P
-               IWORK( I ) = I - (P - ROWSB)
-            ENDDO
-         ELSE
-            DO I = ROWSB + 1, P
-               IWORK( I ) = I - ROWSB
-            ENDDO
+      IF( PREPROCESSA .AND. WANTU1 ) THEN
+         CALL SORMQR( 'L', 'N', M, M, ROWSA, A, LDA,
+     $                WORK( ITAUA ), U1, LDU1,
+     $                WORK( IG ), LWORK - IG + 1, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
          ENDIF
-         CALL SLAPMT( .FALSE., P, P, U2, LDU2, IWORK )
       ENDIF
+*
+      IF( PREPROCESSB .AND. WANTU2 ) THEN
+         CALL SORMQR( 'L', 'N', P, P, ROWSB, B, LDB,
+     $                WORK( ITAUB ), U2, LDU2,
+     $                WORK( IG ), LWORK - IG + 1, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         ENDIF
+*        Fix column order of U2
+*        Because of the QR decomposition in the pre-processing, the first
+*        rank(B) columns of U2 are a basis of range(B) but for matrix B,
+*        the CS values are in ascending order. If B does not have full
+*        row rank, then the first P - rank(B) columns should be a basis
+*        for the complement of range(B) and the columns of U2 must be
+*        re-ordered.
+*        Ensure the column permutation of G was reverted before
+*        overwriting IWORK.
+         IF( ROWSB.LT.P ) THEN
+            DO I = 1, ROWSB
+               IWORK( I ) = P - ROWSB + I
+            ENDDO
+            IF( ROWSB.LE.P-ROWSB ) THEN
+               DO I = ROWSB + 1, P - ROWSB
+                  IWORK( I ) = I
+               ENDDO
+               DO I = P - ROWSB + 1, P
+                  IWORK( I ) = I - (P - ROWSB)
+               ENDDO
+            ELSE
+               DO I = ROWSB + 1, P
+                  IWORK( I ) = I - ROWSB
+               ENDDO
+            ENDIF
+            CALL SLAPMT( .FALSE., P, P, U2, LDU2, IWORK )
+         ENDIF
+      ENDIF
+*
+*     Debug
+*
+      WORK( :LWORK ) = NAN
 *
 *     The pre-processing may reduce the number of angles that need to
 *     be computed by the CS decomposition. Add these angles to the list
