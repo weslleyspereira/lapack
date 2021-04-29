@@ -524,7 +524,7 @@
 *     Make sure A is the matrix smaller in norm
 *
       IF( NORMA.GT.SQRT( 2.0E0 ) * NORMB ) THEN
-         CALL SGGQRCS( JOBU2, JOBU1, JOBX, HINTPREPA, HINTPREPB,
+         CALL SGGQRCS( JOBU2, JOBU1, JOBX, HINTPREPB, HINTPREPA,
      $                 P, N, M, RANK,
      $                 SWAPPED,
      $                 B, LDB, A, LDA,
