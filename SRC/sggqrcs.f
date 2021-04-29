@@ -595,6 +595,22 @@
 *     By the time xORCSD2BY1 is called, TAU(G) is not needed anymore
       LWKMIN = MAX( LWKMIN, INT( WORK( 1 ) ) + ITAUG )
       LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ITAUG )
+*
+      IF( PREPROCESSA ) THEN
+         CALL SORMQR( 'L', 'N', M, M, RANKMAXA, A, LDA,
+     $                WORK, U1, LDU1,
+     $                WORK, -1, INFO )
+         LWKMIN = MAX( LWKMIN, MAX( 1, N ) + IG )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IG )
+      ENDIF
+*
+      IF( PREPROCESSB ) THEN
+         CALL SORMQR( 'L', 'N', P, P, RANKMAXB, B, LDB,
+     $                WORK, U2, LDU2,
+     $                WORK, -1, INFO )
+         LWKMIN = MAX( LWKMIN, MAX( 1, N ) + IG )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IG )
+      ENDIF
 *     Check workspace size
       IF( LWORK.LT.LWKMIN .AND. .NOT.LQUERY ) THEN
          INFO = -25
