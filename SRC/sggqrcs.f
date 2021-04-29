@@ -454,8 +454,6 @@
      $ M.GT.N .OR. ( M.GT.0 .AND. .NOT.LSAME(HINTPREPA, 'N') )
       PREPROCESSB =
      $ P.GT.N .OR. ( P.GT.0 .AND. .NOT.LSAME(HINTPREPB, 'N') )
-      PREPROCESSA = .FALSE.
-      PREPROCESSB = .FALSE.
       WANTU1 = LSAME( JOBU1, 'Y' )
       WANTU2 = LSAME( JOBU2, 'Y' )
       WANTX = LSAME( JOBX, 'Y' )
