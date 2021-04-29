@@ -1000,8 +1000,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 
 	gen.discard(1u << 17);
 
+	auto second = std::time_t{1};
+	auto delta_sec = 60 * second;
 	auto start_time_sec = std::time(nullptr);
-	auto last_time_sec = std::time_t{0};
+	auto last_time_sec = start_time_sec - delta_sec;
 	auto iteration = std::uintmax_t{0};
 
 	constexpr char FMT[] = "%7jd %13ju  %3zu %3zu %3zu %4zu  %20ju\n";
@@ -1021,17 +1023,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 		{
 			auto seed = seed_dist(gen);
 			auto now_sec = std::time(nullptr);
-			auto second = std::time_t{1};
 
-			if(last_time_sec + 60*second < now_sec)
+			if(last_time_sec + delta_sec <= now_sec)
 			{
 				auto time_passed_sec = std::intmax_t{now_sec - start_time_sec};
 
 				std::printf(
 					FMT, time_passed_sec, iteration, m, n, p, rank, seed
 				);
-
-				last_time_sec = now_sec;
+				last_time_sec += delta_sec;
 			}
 
 			xGGQRCS_test_random_impl(Number{0}, m, n, p, rank, seed);
