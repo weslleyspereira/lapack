@@ -18,23 +18,29 @@
 *  Definition:
 *  ===========
 *
-*       SUBROUTINE SGGQRCS( JOBU1, JOBU2, JOBX, M, N, P, RANK, SWAPPED,
-*                           A, LDA, B, LDB,
-*                           ALPHA, BETA,
-*                           U1, LDU1, U2, LDU2,
-*                           TOL,
-*                           WORK, LWORK, IWORK, INFO )
+*       SUBROUTINE SGGQRCS( JOBU1, JOBU2, JOBX,
+*      $                    HINTPREPA, HINTPREPB,
+*      $                    M, N, P, RANK,
+*      $                    SWAPPED,
+*      $                    A, LDA, B, LDB,
+*      $                    ALPHA, BETA,
+*      $                    U1, LDU1, U2, LDU2, X, LDX,
+*      $                    TOL,
+*      $                    WORK, LWORK,
+*      $                    IWORK, INFO )
 *
 *       .. Scalar Arguments ..
-*       CHARACTER          JOBU1, JOB2, JOBX
-*       INTEGER            INFO, LDA, LDB, LDU1, LDU2, M, N, P, RANK, LWORK
+*       LOGICAL            SWAPPED
+*       CHARACTER          JOBU1, JOBU2, JOBX, HINTPREPA, HINTPREPB
+*       INTEGER            INFO, LDA, LDB, LDU1, LDU2, LDX,
+*      $                   M, N, P, RANK, LWORK
 *       REAL               TOL
 *       ..
 *       .. Array Arguments ..
 *       INTEGER            IWORK( * )
 *       REAL               A( LDA, * ), B( LDB, * ),
 *      $                   ALPHA( N ), BETA( N ),
-*      $                   U1( LDU1, * ), U2( LDU2, * ),
+*      $                   U1( LDU1, * ), U2( LDU2, * ), X( LDX, * )
 *      $                   WORK( * )
 *       ..
 *
@@ -97,7 +103,6 @@
 *>   C^2 + S^2 = I.
 *>
 *> The routine computes C, S and optionally the matrices U1, U2, and X.
-*> On exit, X is stored in WORK( 2:RANK*N+1 ).
 *>
 *> If B is an N-by-N nonsingular matrix, then the GSVD of the matrix
 *> pair (A, B) implicitly gives the SVD of A*inv(B):
@@ -145,6 +150,34 @@
 *>          = 'N':  X is not computed.
 *> \endverbatim
 *>
+*> \param[in,out] HINTPREPA
+*> \verbatim
+*>          HINTPREPA is CHARACTER*1
+*>          = 'Y':  Advises SGGQRCS to pre-process A;
+*>          = 'N':  advises SGGQRCS not to pre-process A;
+*>          = '?':  pre-processing decision left to algorithm.
+*>
+*>          On exit, the variable will be set to 'Y' if the matrix
+*>          was pre-processed, 'N' otherwise.
+*>          The variable may be modified by workspace queries.
+*>
+*>          See below for a discussion of pre-processing.
+*> \endverbatim
+*>
+*> \param[in,out] HINTPREPB
+*> \verbatim
+*>          HINTPREPB is CHARACTER*1
+*>          = 'Y':  Advises SGGQRCS to pre-process B;
+*>          = 'N':  advises SGGQRCS not to pre-process B;
+*>          = '?':  pre-processing decision left to algorithm.
+*>
+*>          On exit, the variable will be set to 'Y' if the matrix
+*>          was pre-processed, 'N' otherwise.
+*>          The variable may be modified by workspace queries.
+*>
+*>          See below for a discussion of pre-processing.
+*> \endverbatim
+*>
 *> \param[in] M
 *> \verbatim
 *>          M is INTEGER
@@ -172,10 +205,13 @@
 *>
 *> \param[out] SWAPPED
 *> \verbatim
-*>          RANK is LOGICAL
+*>          SWAPPED is LOGICAL
 *>          On exit, SWAPPED is true if SGGQRCS swapped the input
 *>          matrices A, B and computed the GSVD of (B, A); false
 *>          otherwise.
+*>
+*>          Swapping the matrices internally is necessary to achieve
+*>          uncoditional backward stability.
 *> \endverbatim
 *>
 *> \param[in,out] A
@@ -243,12 +279,31 @@
 *>          JOBU2 = 'Y'; LDU2 >= 1 otherwise.
 *> \endverbatim
 *>
+*> \param[out] X
+*> \verbatim
+*>          X is REAL array, dimension (LDX,N)
+*>          If JOBX = 'Y', X contains the RANKxN matrix X.
+*>          If JOBX = 'N', X is not referenced.
+*> \endverbatim
+*>
+*> \param[in] LDX
+*> \verbatim
+*>          LDX is INTEGER
+*>          The leading dimension of the array X. LDX >= max(1,RANKMAXG)
+*>          if JOBX = 'Y'; LDX >= 1 otherwise. RANKMAXG is the largest
+*>          possible rank of the matrix G = (A**T, W*B**T)**T:
+*>            RANKMAXG = MIN( MIN( M, N ) + MIN( P, N ), N ).
+*> \endverbatim
+*>
 *> \param[in,out] TOL
 *> \verbatim
 *>          TOL is REAL
 *>          This user-provided tolerance is used for the rank determination
-*>          of the matrix G = (A**T, W*B**T)**T, see the documentation
-*>          of ABSTOL for details.
+*>          of the matrix
+*>          * A if pre-processing of A is enabled,
+*>          * B if pre-processing of B is enabled,
+*>          * G = (A**T, W*B**T)**T.
+*>          See the documentation of ABSTOL for details.
 *>
 *>          If TOL < 0, then the tolerance will be determined
 *>          automatically and this should be the default choice for most
@@ -283,8 +338,11 @@
 *>          INFO is INTEGER
 *>          = 0:  successful exit.
 *>          < 0:  if INFO = -i, the i-th argument had an illegal value.
-*>          > 0:  SBBCSD did not converge. For further details, see
-*>                subroutine SORCSDBY1.
+*>          > 0:  One of the subroutines failed. Its name will be
+*>                printed by XERBLA.
+*>          101:  The norm of A is not a number of infinite.
+*>          102:  The norm of B is not a number of infinite.
+*>          103:  The norm of G is not a number of infinite.
 *> \endverbatim
 *
 *> \par Internal Parameters:
@@ -296,11 +354,14 @@
 *>          and W*B are within SQRT(RADIX) and 1/SQRT(RADIX) of each
 *>          other.
 *>
-*>  ABSTOL  REAL
-*>          Let G = (A**T, W*B**T)**T. ABSTOL is the threshold to determine
-*>          the effective rank of G. Generally, it is set to
-*>                   ABSTOL = TOL * MAX( M + P, N ) * norm(G),
-*>          where norm(G) is the Frobenius norm of G.
+*>  ABSTOL
+*>  ABSTOLA REAL
+*>  ABSTOLB REAL
+*>  ABSTOLG REAL
+*>          ABSTOL are threshold values to determine the numerical rank
+*>          of matrices. For a matrix Z, it is set to
+*>              ABSTOLZ = TOL * MAX( #ROWS, #COLUMNS ) * norm(Z),
+*>          where norm(Z) is the Frobenius norm of Z.
 *>          The size of ABSTOL may affect the size of backward error of the
 *>          decomposition.
 *> \endverbatim
@@ -320,6 +381,23 @@
 *
 *> \par Further Details:
 *  =====================
+*>
+*>  SGGQRCS can pre-process the input matrices A and B. Pre-processing
+*>  can noticeably sped up the GSVD computation and it limits the
+*>  workspace size for matrices with more rows than columns but it does
+*>  not influence the accuracy of the results. Hence, the pre-processing
+*>  is best thought of as a possibility to optimize performance. If the
+*>  matrix rank is small in comparison to the number of its rows, then
+*>  it is recommended to pre-process the matrix and to pass 'Y' as a
+*>  pre-processing hint. If the matrix has (almost) full row rank,
+*>  then the pre-processing may not speed up the GSVD computation and it
+*>  is best to pass 'N' as a pre-processing hint. In cases where the
+*>  matrix rank is not known or if the user does not care, '?' should be
+*>  passed as hint. SGGQRCS may ignore these _hints_, in particular for
+*>  matrices with much more rows than columns the pre-processing is
+*>  necessary to bound the workspace size by a multiple of the number of
+*>  columns. This design choice allows LAPACK implementations to
+*>  customize their pre-processing criteria.
 *>
 *>  SGGQRCS should be significantly faster than SGGSVD3 for large
 *>  matrices because the matrices A and B are reduced to a pair of
