@@ -670,7 +670,7 @@
       LWKMIN = MAX( LWKMIN, INT( WORK( 1 ) ) + ITAUG )
       LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ITAUG )
 *
-      IF( PREPROCESSA ) THEN
+      IF( PREPROCESSA .AND. WANTU1 ) THEN
          CALL SORMQR( 'L', 'N', M, M, RANKMAXA, A, LDA,
      $                WORK, U1, LDU1,
      $                WORK, -1, INFO )
@@ -678,7 +678,7 @@
          LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IG )
       ENDIF
 *
-      IF( PREPROCESSB ) THEN
+      IF( PREPROCESSB .AND. WANTU2 ) THEN
          CALL SORMQR( 'L', 'N', P, P, RANKMAXB, B, LDB,
      $                WORK, U2, LDU2,
      $                WORK, -1, INFO )
