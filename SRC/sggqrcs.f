@@ -640,29 +640,26 @@
       IF( PREPROCESSA ) THEN
          CALL SGEQP3( M, N, A, LDA, IWORK, WORK( ITAUA ),
      $                WORK, -1, INFO )
-         LWKMIN = MAX( LWKMIN, 3 * N + 1 )
-         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) )
+         LWKMIN = MAX( LWKMIN, 3 * N + 1        + ITAUB )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ITAUB )
       ENDIF
 *
       IF( PREPROCESSB ) THEN
          CALL SGEQP3( P, N, B, LDB, IWORK, WORK( ITAUB ),
      $                WORK, -1, INFO )
-         LWKMIN = MAX( LWKMIN, 3 * N + 1 )
-         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) )
+         LWKMIN = MAX( LWKMIN, 3 * N + 1        + IG )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IG )
       ENDIF
 *
       CALL SGEQP3( ROWSA + ROWSB, N, WORK( IG ), LDG, IWORK,
      $             WORK( ITAUG ), WORK, -1, INFO )
-      LWKMIN = MAX( LWKMIN, 3 * N + 1 )
-      LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) )
+      LWKMIN = MAX( LWKMIN, 3 * N + 1        + ISCRATCH )
+      LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ISCRATCH )
 *
       CALL SORGQR( ROWSA + ROWSB, RANKMAXG, RANKMAXG, WORK( IG ), LDG,
      $             WORK( ITAUG ), WORK, -1, INFO )
-      LWKMIN = MAX( LWKMIN, RANKMAXG )
-      LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) )
-*     Add workspace for xGGQRCS
-      LWKMIN = LWKMIN + ISCRATCH
-      LWKOPT = LWKOPT + ISCRATCH
+      LWKMIN = MAX( LWKMIN, RANKMAXG         + ISCRATCH )
+      LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ISCRATCH )
 *
       CALL SORCSD2BY1( JOBU1, JOBU2, JOBX,
      $                 ROWSA + ROWSB, ROWSA, RANKMAXG,
@@ -670,7 +667,6 @@
      $                 BETA,
      $                 U1, LDU1, U2, LDU2, X, LDX,
      $                 WORK, -1, IWORK, INFO )
-*     By the time xORCSD2BY1 is called, TAU(G) is not needed anymore
       LWKMIN = MAX( LWKMIN, INT( WORK( 1 ) ) + ITAUG )
       LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ITAUG )
 *
@@ -678,7 +674,7 @@
          CALL SORMQR( 'L', 'N', M, M, RANKMAXA, A, LDA,
      $                WORK, U1, LDU1,
      $                WORK, -1, INFO )
-         LWKMIN = MAX( LWKMIN, MAX( 1, N ) + IG )
+         LWKMIN = MAX( LWKMIN, MAX( 1, N )      + IG )
          LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IG )
       ENDIF
 *
@@ -686,7 +682,7 @@
          CALL SORMQR( 'L', 'N', P, P, RANKMAXB, B, LDB,
      $                WORK, U2, LDU2,
      $                WORK, -1, INFO )
-         LWKMIN = MAX( LWKMIN, MAX( 1, N ) + IG )
+         LWKMIN = MAX( LWKMIN, MAX( 1, N )      + IG )
          LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IG )
       ENDIF
 *     Check workspace size
