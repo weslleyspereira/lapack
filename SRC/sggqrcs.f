@@ -364,6 +364,23 @@
 *>          where norm(Z) is the Frobenius norm of Z.
 *>          The size of ABSTOL may affect the size of backward error of the
 *>          decomposition.
+*>
+*>  ITAUGL  INTEGER
+*>          The index of the first scalar factor of the elementary
+*>          reflectors of the LQ decomposition of G.
+*>
+*>  ITAUGR  INTEGER
+*>          The index of the first scalar factor of the elementary
+*>          reflectors of the QR decomposition of G.
+*>
+*>  MAYBEPREPG LOGICAL
+*>          Pre-processing the matrix G requires dedicated workspace.
+*>          This variable captures the need to reserve this workspace
+*>          but it is not guaranteed that G will be pre-processed.
+*>
+*>  NG      INTEGER
+*>          The number of columns of G. Pre-processing G will reduce
+*>          the number of columns.
 *> \endverbatim
 *
 *  Authors:
@@ -407,6 +424,12 @@
 *>  offers no guarantees which of the two possible diagonal matrices
 *>  is used for the matrix factorization.
 *>
+*> \par Notes to Implementors
+*  ==========================
+*>
+*>  * The workspace queries of xORGLQ and xORMLQ rely on the matrix G
+*>    having at least twice as many columns as rows.
+*>
 *  =====================================================================
       RECURSIVE SUBROUTINE SGGQRCS( JOBU1, JOBU2, JOBX,
      $                              HINTPREPA, HINTPREPB,
@@ -442,12 +465,13 @@
 *  =====================================================================
 *
 *     .. Local Scalars ..
-      LOGICAL            PREPROCESSA, PREPROCESSB,
+      LOGICAL            MAYBEPREPG,
+     $                   PREPROCESSA, PREPROCESSB, PREPROCESSG,
      $                   WANTU1, WANTU2, WANTX, LQUERY
-      INTEGER            I, J,
+      INTEGER            I, J, NG,
      $                   K, K1, K2, KP, K1P, K2P,
      $                   RANKMAXA, RANKMAXB, RANKMAXG, ROWSA, ROWSB,
-     $                   ITAUA, ITAUB, ITAUG, IG, ISCRATCH,
+     $                   ITAUA, ITAUB, ITAUGL, ITAUGR, IG, ISCRATCH,
      $                   IG11, IG21, IG22, LDG,
      $                   LWKMIN, LWKOPT
       REAL               BASE, ULP, UNFL,
@@ -463,7 +487,8 @@
 *     ..
 *     .. External Subroutines ..
       EXTERNAL           SGEMM, SGEQP3, SLACPY, SLAPMT, SLASCL,
-     $                   SLASET, SORGQR, SORCSD2BY1, SORMQR, XERBLA
+     $                   SLASET, SORGQR, SORCSD2BY1, SORMLQ, SORMQR,
+     $                   XERBLA
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          ACOS, COS, ISNAN, MAX, MIN, SIN, SQRT
@@ -532,6 +557,7 @@
      $ M.GT.N .OR. ( M.GT.0 .AND. .NOT.LSAME(HINTPREPA, 'N') )
       PREPROCESSB =
      $ P.GT.N .OR. ( P.GT.0 .AND. .NOT.LSAME(HINTPREPB, 'N') )
+      PREPROCESSG = .FALSE.
       WANTU1 = LSAME( JOBU1, 'Y' )
       WANTU2 = LSAME( JOBU2, 'Y' )
       WANTX = LSAME( JOBX, 'Y' )
@@ -546,7 +572,14 @@
          ROWSB = MIN( P, N )
       ELSE
          ROWSB = P
+*
+      MAYBEPREPG =
+     $ 2 * ( ROWSA + ROWSB ).LE.N
+     $ .OR. PREPROCESSA
+     $ .OR. PREPROCESSB
       ENDIF
+*
+      NG = N
 *     The leading dimension must never be zero
       LDG = MAX( ROWSA + ROWSB, 1 )
 *     Compute offsets into workspace
@@ -561,8 +594,13 @@
       ELSE
          IG = ITAUB
       ENDIF
-      ITAUG = IG + LDG * N
-      ISCRATCH = ITAUG + RANKMAXG
+      ITAUGL = IG + LDG * N
+      IF( MAYBEPREPG ) THEN
+         ITAUGR = ITAUGL + N / 2
+      ELSE
+         ITAUGR = ITAUGL
+      ENDIF
+      ISCRATCH = ITAUGR + RANKMAXG
       IG11 = IG
       IG21 = IG + ROWSA
       IG22 = IG + LDG * M + M
@@ -651,13 +689,20 @@
          LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IG )
       ENDIF
 *
+      IF( MAYBEPREPG ) THEN
+         CALL SGELQF( ROWSA + ROWSB, N, WORK( IG ), LDG, WORK( ITAUGL ),
+     $                WORK, -1, INFO )
+         LWKMIN = MAX( LWKMIN, MAX( ROWSA + ROWSB, 1 ) + ITAUGR )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) )        + ITAUGR )
+      ENDIF
+*
       CALL SGEQP3( ROWSA + ROWSB, N, WORK( IG ), LDG, IWORK,
-     $             WORK( ITAUG ), WORK, -1, INFO )
+     $             WORK( ITAUGR ), WORK, -1, INFO )
       LWKMIN = MAX( LWKMIN, 3 * N + 1        + ISCRATCH )
       LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ISCRATCH )
 *
       CALL SORGQR( ROWSA + ROWSB, RANKMAXG, RANKMAXG, WORK( IG ), LDG,
-     $             WORK( ITAUG ), WORK, -1, INFO )
+     $             WORK( ITAUGR ), WORK, -1, INFO )
       LWKMIN = MAX( LWKMIN, RANKMAXG         + ISCRATCH )
       LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ISCRATCH )
 *
@@ -667,8 +712,16 @@
      $                 BETA,
      $                 U1, LDU1, U2, LDU2, X, LDX,
      $                 WORK, -1, IWORK, INFO )
-      LWKMIN = MAX( LWKMIN, INT( WORK( 1 ) ) + ITAUG )
-      LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ITAUG )
+      LWKMIN = MAX( LWKMIN, INT( WORK( 1 ) ) + ITAUGR )
+      LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ITAUGR )
+*
+      IF( MAYBEPREPG .AND. WANTX ) THEN
+         I = MIN( ROWSA + ROWSB, N / 2 )
+         CALL SORMLQ( 'R', 'N', I, N, I, WORK, LDG, WORK, X, LDX,
+     $                WORK, -1, INFO )
+         LWKMIN = MAX( LWKMIN, MAX( 1, ROWSA + ROWSB ) + ITAUGR )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) )        + ITAUGR )
+      ENDIF
 *
       IF( PREPROCESSA .AND. WANTU1 ) THEN
          CALL SORMQR( 'L', 'N', M, M, RANKMAXA, A, LDA,
@@ -768,7 +821,7 @@
       IF( PREPROCESSB ) THEN
          IWORK( 1:N ) = 0
          CALL SGEQP3( P, N, B, LDB, IWORK, WORK( ITAUB ),
-     $                WORK( ITAUG ), LWORK - ITAUG + 1, INFO )
+     $                WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
          IF( INFO.NE.0 ) THEN
             RETURN
          END IF
@@ -792,11 +845,37 @@
          CALL SLACPY( 'A', P, N, B, LDB, WORK( IG21 ), LDG )
       END IF
 *
+*     Maybe pre-process G by computing an LQ factorization
+*
+      PREPROCESSG = MAYBEPREPG .AND. 2 * ( ROWSA + ROWSB ).LE.N
+*
+      IF( PREPROCESSG ) THEN
+*        assert!( ITAUGR - ITAUGL >= ROWSA + ROWSB );
+         NG = ROWSA + ROWSB
+*
+         CALL SGELQF( NG, N, WORK( IG ), LDG, WORK( ITAUGL ),
+     $                WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         END IF
+*        Save the first NG columns of the elementary reflectors in the
+*        strictly upper triangular part before overwriting this part
+*        with zeros for the QR+CS decomposition.
+         IF( WANTX ) THEN
+            CALL SLACPY( 'U', NG, NG, WORK( IG ), LDG,
+     $                   X( 1, NG + 1 ), LDX )
+         ENDIF
+         IF( NG.GT.1 ) THEN
+            CALL SLASET( 'U', NG, NG - 1, 0.0E0, 0.0E0,
+     $                   WORK( IG + 1 * LDG ), LDG )
+         ENDIF
+      ENDIF
+*
 *     Compute the QR factorization with column pivoting GΠ = Q1 R1
 *
       IWORK( 1:N ) = 0
-      CALL SGEQP3( ROWSA + ROWSB, N, WORK( IG ), LDG, IWORK,
-     $             WORK( ITAUG ),
+      CALL SGEQP3( ROWSA + ROWSB, NG, WORK( IG ), LDG, IWORK,
+     $             WORK( ITAUGR ),
      $             WORK( ISCRATCH ), LWORK - ISCRATCH + 1, INFO )
       IF( INFO.NE.0 ) THEN
          RETURN
@@ -809,6 +888,8 @@
       ELSE
          NORMG = NORMB * SQRT( 1.0E0 + ( ( W * NORMA ) / NORMB )**2 )
       ENDIF
+*     Do not use NG here because the round-off error depends on the
+*     original number of columns.
       ABSTOLG = TOL * MAX( ROWSA + ROWSB, N ) * MAX( NORMG, UNFL )
 *
       IF( ISNAN(NORMG) ) THEN
@@ -820,7 +901,7 @@
 *     Determine the rank of G
 *
       RANK = 0
-      DO I = 0, MIN( ROWSA + ROWSB, N ) - 1
+      DO I = 0, MIN( ROWSA + ROWSB, NG ) - 1
          IF( ABS( WORK( IG + ( I * LDG + I ) ) ).LE.ABSTOLG ) THEN
             EXIT
          END IF
@@ -845,26 +926,26 @@
 *
       IF( WANTX ) THEN
          IF( RANK.LE.M ) THEN
-            CALL SLACPY( 'U', RANK, N, WORK( IG ), LDG, A, LDA )
+            CALL SLACPY( 'U', RANK, NG, WORK( IG ), LDG, A, LDA )
          ELSE
-            CALL SLACPY( 'U', M, N, WORK( IG ), LDG, A, LDA )
-            CALL SLACPY( 'U', RANK - M, N - M, WORK( IG22 ), LDG,
+            CALL SLACPY( 'U', M, NG, WORK( IG ), LDG, A, LDA )
+            CALL SLACPY( 'U', RANK - M, NG - M, WORK( IG22 ), LDG,
      $                   B, LDB )
          END IF
       END IF
 *     DEBUG
-      CALL SLASET( 'U', RANK, N, NAN, NAN, WORK( IG ), LDG )
+      CALL SLASET( 'U', RANK, NG, NAN, NAN, WORK( IG ), LDG )
 *
 *     Explicitly form Q1 so that we can compute the CS decomposition
 *
       CALL SORGQR( ROWSA + ROWSB, RANK, RANK, WORK( IG ), LDG,
-     $             WORK( ITAUG ),
+     $             WORK( ITAUGR ),
      $             WORK( ISCRATCH ), LWORK - ISCRATCH + 1, INFO )
       IF ( INFO.NE.0 ) THEN
          RETURN
       END IF
 *     DEBUG
-      WORK( ITAUG:LWORK ) = NAN
+      WORK( ITAUGR:LWORK ) = NAN
 *
 *     The pre-processing may reduce the number of angles that need to
 *     be computed by the CS decomposition:
@@ -907,28 +988,31 @@
      $                 WORK( IG11 ), LDG, WORK( IG21 ), LDG,
      $                 BETA( K1P - K1 + 1 ),
      $                 U1, LDU1, U2, LDU2, X, LDX,
-     $                 WORK( ITAUG ), LWORK - ITAUG + 1,
-     $                 IWORK( N + 1 ), INFO )
+     $                 WORK( ITAUGR ), LWORK - ITAUGR + 1,
+     $                 IWORK( NG + 1 ), INFO )
       IF( INFO.NE.0 ) THEN
          RETURN
       END IF
 *     DEBUG
-      WORK( IG:LWORK ) = NAN
+      WORK( ITAUGR:LWORK ) = NAN
 *
-*     Compute X = V^T R1( 1:RANK, : )
+*     Compute X = ( V^T R1( 1:RANK, : ) ) Q, where Q is the orthogonal
+*     factor of the LQ factorization of G if pre-processing was enabled
+*     and the identity matrix otherwise. V and R1 should be multiplied
+*     first to minimize the FLOP count.
 *
       IF( WANTX ) THEN
          IF ( RANK.LE.M ) THEN
-            CALL SGEMM( 'N', 'N', RANK, N - RANK, RANK,
-     $                  1.0E0, X, LDX, A(1, RANK + 1), LDA,
+            CALL SGEMM( 'N', 'N', RANK, NG - RANK, RANK,
+     $                  1.0E0, X, LDX, A( 1, RANK + 1 ), LDA,
      $                  0.0E0, X( 1, RANK + 1 ), LDX )
             CALL STRMM( 'R', 'U', 'N', 'N', RANK, RANK, 1.0E0,
      $                  A, LDA, X, LDX )
          ELSE
-            CALL SLACPY( 'U', M, N, A, LDA, WORK( IG ), LDG )
-            CALL SLACPY( 'U', RANK - M, N - M, B, LDB,
+            CALL SLACPY( 'U', M, NG, A, LDA, WORK( IG ), LDG )
+            CALL SLACPY( 'U', RANK - M, NG - M, B, LDB,
      $                   WORK( IG22 ), LDG )
-            CALL SGEMM( 'N', 'N', RANK, N - RANK, RANK,
+            CALL SGEMM( 'N', 'N', RANK, NG - RANK, RANK,
      $                  1.0E0, X, LDX,
      $                  WORK( IG + RANK * LDG ), LDG,
      $                  0.0E0, X( 1, RANK + 1 ), LDX )
@@ -936,8 +1020,26 @@
      $                  WORK( IG ), LDG, X, LDX )
          END IF
 *        Revert column permutation Π by permuting the columns of X
-         CALL SLAPMT( .FALSE., RANK, N, X, LDX, IWORK )
-      END IF
+         CALL SLAPMT( .FALSE., RANK, NG, X, LDX, IWORK )
+*
+         IF( PREPROCESSG ) THEN
+            CALL SLACPY( 'U', RANK, NG, X( 1, NG + 1 ), LDX,
+     $                   WORK( IG ), LDG )
+*           Is extending the matrix to RANKxN necessary or can one fool
+*           SORMLQ by pretending to have an orthogonal matrix with only
+*           NG columns?
+            CALL SLASET( 'A', RANK, N - NG, 0.0E0, 0.0E0,
+     $                   X( 1, NG + 1 ), LDX )
+            CALL SORMLQ( 'R', 'N', RANK, N, NG, WORK( IG ), LDG,
+     $                   WORK( ITAUGL ), X, LDX,
+     $                   WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
+            IF( INFO.NE.0 ) THEN
+               RETURN
+            ENDIF
+         ENDIF
+      ENDIF
+*     DEBUG
+      WORK( IG:LWORK ) = NAN
 *
 *     Apply orthogonal factors of QR decomposition of A, B to U1, U2
 *
