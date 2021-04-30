@@ -507,6 +507,9 @@
       RANKMAXA = MIN( M, N )
       RANKMAXB = MIN( P, N )
       RANKMAXG = MIN( RANKMAXA + RANKMAXB, N )
+      WANTU1 = LSAME( JOBU1, 'Y' )
+      WANTU2 = LSAME( JOBU2, 'Y' )
+      WANTX = LSAME( JOBX, 'Y' )
 *
       INFO = 0
       IF( .NOT.( LSAME( JOBU1, 'Y' ) .OR. LSAME( JOBU1, 'N' ) ) ) THEN
@@ -558,9 +561,6 @@
       PREPROCESSB =
      $ P.GT.N .OR. ( P.GT.0 .AND. .NOT.LSAME(HINTPREPB, 'N') )
       PREPROCESSG = .FALSE.
-      WANTU1 = LSAME( JOBU1, 'Y' )
-      WANTU2 = LSAME( JOBU2, 'Y' )
-      WANTX = LSAME( JOBX, 'Y' )
 *
       RANK = -1
       IF( PREPROCESSA ) THEN
@@ -572,12 +572,12 @@
          ROWSB = MIN( P, N )
       ELSE
          ROWSB = P
+      ENDIF
 *
       MAYBEPREPG =
      $ 2 * ( ROWSA + ROWSB ).LE.N
      $ .OR. PREPROCESSA
      $ .OR. PREPROCESSB
-      ENDIF
 *
       NG = N
 *     The leading dimension must never be zero
