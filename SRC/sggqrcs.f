@@ -486,7 +486,7 @@
       EXTERNAL           LSAME, SLAMCH, SLANGE
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           SGEMM, SGEQP3, SLACPY, SLAPMT, SLASCL,
+      EXTERNAL           SGEMM, SGEQP3, SGETRP, SLACPY, SLAPMT, SLASCL,
      $                   SLASET, SORGQR, SORCSD2BY1, SORMLQ, SORMQR,
      $                   XERBLA
 *     ..
@@ -575,9 +575,10 @@
       ENDIF
 *
       MAYBEPREPG =
-     $ 2 * ( ROWSA + ROWSB ).LE.N
-     $ .OR. PREPROCESSA
-     $ .OR. PREPROCESSB
+     $   WANTX .AND. (
+     $      2 * ( ROWSA + ROWSB ).LE.N
+     $      .OR. PREPROCESSA
+     $      .OR. PREPROCESSB )
 *
       NG = N
 *     The leading dimension must never be zero
@@ -845,42 +846,6 @@
          CALL SLACPY( 'A', P, N, B, LDB, WORK( IG21 ), LDG )
       END IF
 *
-*     Maybe pre-process G by computing an LQ factorization
-*
-      PREPROCESSG = MAYBEPREPG .AND. 2 * ( ROWSA + ROWSB ).LE.N
-*
-      IF( PREPROCESSG ) THEN
-*        assert!( ITAUGR - ITAUGL >= ROWSA + ROWSB );
-         NG = ROWSA + ROWSB
-*
-         CALL SGELQF( NG, N, WORK( IG ), LDG, WORK( ITAUGL ),
-     $                WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
-         IF( INFO.NE.0 ) THEN
-            RETURN
-         END IF
-*        Save the first NG columns of the elementary reflectors in the
-*        strictly upper triangular part before overwriting this part
-*        with zeros for the QR+CS decomposition.
-         IF( WANTX ) THEN
-            CALL SLACPY( 'U', NG, NG, WORK( IG ), LDG,
-     $                   X( 1, NG + 1 ), LDX )
-         ENDIF
-         IF( NG.GT.1 ) THEN
-            CALL SLASET( 'U', NG, NG - 1, 0.0E0, 0.0E0,
-     $                   WORK( IG + 1 * LDG ), LDG )
-         ENDIF
-      ENDIF
-*
-*     Compute the QR factorization with column pivoting GΠ = Q1 R1
-*
-      IWORK( 1:N ) = 0
-      CALL SGEQP3( ROWSA + ROWSB, NG, WORK( IG ), LDG, IWORK,
-     $             WORK( ITAUGR ),
-     $             WORK( ISCRATCH ), LWORK - ISCRATCH + 1, INFO )
-      IF( INFO.NE.0 ) THEN
-         RETURN
-      END IF
-*
 *     Compute the Frobenius norm of matrix G
 *
       IF( NORMB.LE.UNFL ) THEN
@@ -896,6 +861,58 @@
          INFO = 103
          CALL XERBLA( 'SGGQRCS', INFO )
          RETURN
+      ENDIF
+*
+*     Maybe pre-process G by computing an LQ factorization
+*
+      PREPROCESSG = MAYBEPREPG .AND. 2 * ( ROWSA + ROWSB ).LE.N
+*
+      IF( PREPROCESSG ) THEN
+*        assert!( ITAUGR - ITAUGL >= ROWSA + ROWSB );
+*        assert!( WANTX );
+         NG = ROWSA + ROWSB
+*
+         CALL SLACPY( 'A', NG, N, WORK( IG ), LDG, X, LDX )
+         CALL SGETRP( NG, N, X, LDX, WORK( IG ), N, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         END IF
+         CALL SLASET( 'A', NG, N, NAN, NAN, X, LDX )
+*
+         IWORK( 1:NG ) = 0
+         CALL SGEQP3( N, NG, WORK( IG ), N, IWORK, WORK( ITAUGL ),
+     $           WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         END IF
+*
+         CALL SGETRP( N, NG, WORK( IG ), N, X, LDX, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         END IF
+         CALL SLACPY( 'A', NG, N, X, LDX, WORK( IG ), LDG )
+*
+*        Save the first NG columns of the elementary reflectors in the
+*        strictly upper triangular part before overwriting this part
+*        with zeros for the QR, CS decomposition.
+         CALL SLASET( 'A', NG, N, NAN, NAN, X, LDX )
+         CALL SLACPY( 'U', NG, NG, WORK( IG ), LDG,
+     $                X( 1, NG + 1 ), LDX )
+         IF( NG.GT.1 ) THEN
+            CALL SLASET( 'U', NG, NG - 1, 0.0E0, 0.0E0,
+     $                   WORK( IG + 1 * LDG ), LDG )
+         ENDIF
+      ELSE
+*
+*        Compute the QR factorization with column pivoting GΠ = Q1 R1
+*
+         IWORK( 1:N ) = 0
+         CALL SGEQP3( ROWSA + ROWSB, NG, WORK( IG ), LDG, IWORK,
+     $                WORK( ITAUGR ),
+     $                WORK( ISCRATCH ), LWORK - ISCRATCH + 1, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         END IF
       ENDIF
 *
 *     Determine the rank of G
@@ -921,6 +938,17 @@
          WORK( 1 ) = REAL( LWKOPT )
          RETURN
       END IF
+*
+      IF( PREPROCESSG ) THEN
+         CALL SLAPMR( .FALSE., NG, NG, WORK( IG ), LDG, IWORK )
+*        DEBUG
+         IWORK( 1:NG ) = -1
+         CALL SGEQRF( NG, NG, WORK( IG ), LDG, WORK( ITAUGR ),
+     $                WORK( ISCRATCH ), LWORK - ISCRATCH + 1, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         END IF
+      ENDIF
 *
 *     Copy R1( 1:RANK, : ) into A, B
 *
@@ -1020,7 +1048,9 @@
      $                  WORK( IG ), LDG, X, LDX )
          END IF
 *        Revert column permutation Π by permuting the columns of X
-         CALL SLAPMT( .FALSE., RANK, NG, X, LDX, IWORK )
+         IF( .NOT.PREPROCESSG ) THEN
+            CALL SLAPMT( .FALSE., RANK, NG, X, LDX, IWORK )
+         ENDIF
 *
          IF( PREPROCESSG ) THEN
             CALL SLACPY( 'U', RANK, NG, X( 1, NG + 1 ), LDX,
