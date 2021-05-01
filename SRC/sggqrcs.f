@@ -596,7 +596,7 @@
       ENDIF
       ITAUGL = IG + LDG * N
       IF( MAYBEPREPG ) THEN
-         ITAUGR = ITAUGL + N / 2
+         ITAUGR = ITAUGL + MIN( ROWSA + ROWSB, N / 2 )
       ELSE
          ITAUGR = ITAUGL
       ENDIF
@@ -716,7 +716,7 @@
       LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ITAUGR )
 *
       IF( MAYBEPREPG .AND. WANTX ) THEN
-         I = MIN( ROWSA + ROWSB, N / 2 )
+         I = ITAUGR - ITAUGL
          CALL SORMLQ( 'R', 'N', I, N, I, WORK, LDG, WORK, X, LDX,
      $                WORK, -1, INFO )
          LWKMIN = MAX( LWKMIN, MAX( 1, ROWSA + ROWSB ) + ITAUGR )
