@@ -377,10 +377,6 @@
 *>          Pre-processing the matrix G requires dedicated workspace.
 *>          This variable captures the need to reserve this workspace
 *>          but it is not guaranteed that G will be pre-processed.
-*>
-*>  NG      INTEGER
-*>          The number of columns of G. Pre-processing G will reduce
-*>          the number of columns.
 *> \endverbatim
 *
 *  Authors:
@@ -468,10 +464,11 @@
       LOGICAL            MAYBEPREPG,
      $                   PREPROCESSA, PREPROCESSB, PREPROCESSG,
      $                   WANTU1, WANTU2, WANTX, LQUERY
-      INTEGER            I, J, NG,
+      INTEGER            I, J,
      $                   K, K1, K2, KP, K1P, K2P,
+     $                   COLS,
      $                   RANKMAXA, RANKMAXB, RANKMAXG, ROWSA, ROWSB,
-     $                   ITAUA, ITAUB, ITAUGL, ITAUGR, IG, ISCRATCH,
+     $                   ITAUA, ITAUB, ITAUGL, ITAUGR, IMAT, ISCRATCH,
      $                   IG11, IG21, IG22, LDG,
      $                   LWKMIN, LWKOPT
       REAL               BASE, ULP, UNFL,
@@ -560,9 +557,10 @@
      $ M.GT.N .OR. ( M.GT.0 .AND. .NOT.LSAME(HINTPREPA, 'N') )
       PREPROCESSB =
      $ P.GT.N .OR. ( P.GT.0 .AND. .NOT.LSAME(HINTPREPB, 'N') )
-      PREPROCESSG = .FALSE.
+      PREPROCESSG = 2 * ( M + P ).LE.N
 *
       RANK = -1
+      COLS = N
       IF( PREPROCESSA ) THEN
          ROWSA = MIN( M, N )
       ELSE
@@ -573,16 +571,12 @@
       ELSE
          ROWSB = P
       ENDIF
-*
-      MAYBEPREPG =
-     $   WANTX .AND. (
-     $      2 * ( ROWSA + ROWSB ).LE.N
-     $      .OR. PREPROCESSA
-     $      .OR. PREPROCESSB )
-*
-      NG = N
 *     The leading dimension must never be zero
-      LDG = MAX( ROWSA + ROWSB, 1 )
+      IF( PREPROCESSG ) THEN
+         LDG = MAX( N, 1 )
+      ELSE
+         LDG = MAX( ROWSA + ROWSB, 1 )
+      ENDIF
 *     Compute offsets into workspace
       ITAUA = 1
       IF( PREPROCESSA ) THEN
@@ -591,20 +585,22 @@
          ITAUB = ITAUA
       ENDIF
       IF( PREPROCESSB ) THEN
-         IG = ITAUB + RANKMAXB
+         IMAT = ITAUB + RANKMAXB
       ELSE
-         IG = ITAUB
+         IMAT = ITAUB
       ENDIF
-      ITAUGL = IG + LDG * N
-      IF( MAYBEPREPG ) THEN
-         ITAUGR = ITAUGL + MIN( ROWSA + ROWSB, N / 2 )
+      ITAUGL = IMAT + MAX( ROWSA + ROWSB, 1 ) * N
+*     TODO: reserving workspace for the scalar factors of the LQ
+*     factorization with row pivoting is only needed if WANTX
+      IF( PREPROCESSG ) THEN
+         ITAUGR = ITAUGL + ROWSA + ROWSB
       ELSE
          ITAUGR = ITAUGL
       ENDIF
       ISCRATCH = ITAUGR + RANKMAXG
-      IG11 = IG
-      IG21 = IG + ROWSA
-      IG22 = IG + LDG * M + M
+      IG11 = IMAT
+      IG21 = IMAT + ROWSA
+      IG22 = IMAT + LDG * M + M
       LWKMIN = -1
       LWKOPT = -1
 *
@@ -676,6 +672,13 @@
       LWKMIN = 0
       LWKOPT = 0
 *
+      IF( PREPROCESSG ) THEN
+         CALL SGEQP3( N, M + P, WORK( IMAT ), LDG, IWORK, WORK,
+     $                WORK, -1, INFO )
+         LWKMIN = MAX( LWKMIN, 3 * ( M + P ) + 1 + ITAUB )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) )  + ITAUB )
+      ENDIF
+*
       IF( PREPROCESSA ) THEN
          CALL SGEQP3( M, N, A, LDA, IWORK, WORK( ITAUA ),
      $                WORK, -1, INFO )
@@ -686,58 +689,58 @@
       IF( PREPROCESSB ) THEN
          CALL SGEQP3( P, N, B, LDB, IWORK, WORK( ITAUB ),
      $                WORK, -1, INFO )
-         LWKMIN = MAX( LWKMIN, 3 * N + 1        + IG )
-         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IG )
+         LWKMIN = MAX( LWKMIN, 3 * N + 1        + IMAT )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IMAT )
       ENDIF
 *
-      IF( MAYBEPREPG ) THEN
-         CALL SGELQF( ROWSA + ROWSB, N, WORK( IG ), LDG, WORK( ITAUGL ),
+      IF( PREPROCESSG ) THEN
+         CALL SGEQRF( ROWSA + ROWSB, RANKMAXG, WORK, LDG, WORK,
      $                WORK, -1, INFO )
-         LWKMIN = MAX( LWKMIN, MAX( ROWSA + ROWSB, 1 ) + ITAUGR )
-         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) )        + ITAUGR )
+         LWKMIN = MAX( LWKMIN, INT( WORK( 1 ) ) + ISCRATCH )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ISCRATCH )
+      ELSE
+         CALL SGEQP3( ROWSA + ROWSB, N, WORK( IMAT ), LDG, IWORK,
+     $             WORK( ITAUGR ), WORK, -1, INFO )
+         LWKMIN = MAX( LWKMIN, 3 * N + 1        + ISCRATCH )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ISCRATCH )
       ENDIF
 *
-      CALL SGEQP3( ROWSA + ROWSB, N, WORK( IG ), LDG, IWORK,
-     $             WORK( ITAUGR ), WORK, -1, INFO )
-      LWKMIN = MAX( LWKMIN, 3 * N + 1        + ISCRATCH )
-      LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ISCRATCH )
-*
-      CALL SORGQR( ROWSA + ROWSB, RANKMAXG, RANKMAXG, WORK( IG ), LDG,
+      CALL SORGQR( ROWSA + ROWSB, RANKMAXG, RANKMAXG, WORK( IMAT ), LDG,
      $             WORK( ITAUGR ), WORK, -1, INFO )
       LWKMIN = MAX( LWKMIN, RANKMAXG         + ISCRATCH )
       LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ISCRATCH )
 *
       CALL SORCSD2BY1( JOBU1, JOBU2, JOBX,
      $                 ROWSA + ROWSB, ROWSA, RANKMAXG,
-     $                 WORK( IG ), LDG, WORK( IG21 ), LDG,
+     $                 WORK( IG11 ), LDG, WORK( IG21 ), LDG,
      $                 BETA,
      $                 U1, LDU1, U2, LDU2, X, LDX,
      $                 WORK, -1, IWORK, INFO )
       LWKMIN = MAX( LWKMIN, INT( WORK( 1 ) ) + ITAUGR )
       LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ITAUGR )
 *
-      IF( MAYBEPREPG .AND. WANTX ) THEN
+      IF( PREPROCESSG .AND. WANTX ) THEN
          I = ITAUGR - ITAUGL
-         CALL SORMLQ( 'R', 'N', I, N, I, WORK, LDG, WORK, X, LDX,
+         CALL SORMQR( 'R', 'T', I, N, I, WORK, LDG, WORK, X, LDX,
      $                WORK, -1, INFO )
-         LWKMIN = MAX( LWKMIN, MAX( 1, ROWSA + ROWSB ) + ITAUGR )
-         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) )        + ITAUGR )
+         LWKMIN = MAX( LWKMIN, MAX( 1, N )      + ITAUGR )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ITAUGR )
       ENDIF
 *
       IF( PREPROCESSA .AND. WANTU1 ) THEN
          CALL SORMQR( 'L', 'N', M, M, RANKMAXA, A, LDA,
      $                WORK, U1, LDU1,
      $                WORK, -1, INFO )
-         LWKMIN = MAX( LWKMIN, MAX( 1, N )      + IG )
-         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IG )
+         LWKMIN = MAX( LWKMIN, MAX( 1, N )      + IMAT )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IMAT )
       ENDIF
 *
       IF( PREPROCESSB .AND. WANTU2 ) THEN
          CALL SORMQR( 'L', 'N', P, P, RANKMAXB, B, LDB,
      $                WORK, U2, LDU2,
      $                WORK, -1, INFO )
-         LWKMIN = MAX( LWKMIN, MAX( 1, N )      + IG )
-         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IG )
+         LWKMIN = MAX( LWKMIN, MAX( 1, N )      + IMAT )
+         LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IMAT )
       ENDIF
 *     Check workspace size
       IF( LWORK.LT.LWKMIN .AND. .NOT.LQUERY ) THEN
@@ -779,73 +782,6 @@
          W = BASE ** INT( LOG( NORMB / NORMA ) / LOG( BASE ) )
       END IF
 *
-*     Attempt to remove unnecessary matrix rows
-*     Copy matrices A, B or their full-rank factors, respectively, into
-*     the LDG x N matrix G
-*
-      IF( PREPROCESSA ) THEN
-         IWORK( 1:N ) = 0
-         CALL SGEQP3( M, N, A, LDA, IWORK, WORK( ITAUA ),
-     $                WORK( ITAUB ), LWORK - ITAUB + 1, INFO )
-         IF( INFO.NE.0 ) THEN
-            RETURN
-         END IF
-*        Determine rank of A
-         ROWSA = 0
-         DO I = 1, MIN( M, N )
-            IF( ABS( A( I, I ) ).LE.ABSTOLA ) THEN
-               EXIT
-            ENDIF
-            ROWSA = ROWSA + 1
-         END DO
-         IG21 = IG + ROWSA
-*        Scale, copy full rank part into G
-         CALL SLASCL( 'U', -1, -1, 1.0E0, W, ROWSA, N, A, LDA, INFO )
-         IF ( INFO.NE.0 ) THEN
-            RETURN
-         END IF
-         CALL SLASET( 'L', ROWSA, N, 0.0E0, 0.0E0, WORK( IG11 ), LDG )
-         CALL SLACPY( 'U', ROWSA, N, A, LDA, WORK( IG11 ), LDG )
-         CALL SLAPMT( .FALSE., ROWSA, N, WORK( IG11 ), LDG, IWORK )
-*        Initialize U1 although xORCSDB2BY1 will partially overwrite this
-         IF( WANTU1 ) THEN
-             CALL SLASET( 'A', M, M, 0.0E0, 1.0E0, U1, LDU1 )
-         ENDIF
-      ELSE
-         CALL SLASCL( 'G', -1, -1, 1.0E0, W, M, N, A, LDA, INFO )
-         IF ( INFO.NE.0 ) THEN
-            RETURN
-         END IF
-         CALL SLACPY( 'A', M, N, A, LDA, WORK( IG11 ), LDG )
-      END IF
-*
-      IF( PREPROCESSB ) THEN
-         IWORK( 1:N ) = 0
-         CALL SGEQP3( P, N, B, LDB, IWORK, WORK( ITAUB ),
-     $                WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
-         IF( INFO.NE.0 ) THEN
-            RETURN
-         END IF
-*        Determine rank
-         ROWSB = 0
-         DO I = 1, MIN( P, N )
-            IF( ABS( B( I, I ) ).LE.ABSTOLB ) THEN
-               EXIT
-            END IF
-            ROWSB = ROWSB + 1
-         END DO
-*        Copy full rank part into G
-         CALL SLASET( 'L', ROWSB, N, 0.0E0, 0.0E0, WORK( IG21 ), LDG )
-         CALL SLACPY( 'U', ROWSB, N, B, LDB, WORK( IG21 ), LDG )
-         CALL SLAPMT( .FALSE., ROWSB, N, WORK( IG21 ), LDG, IWORK )
-*        Initialize U2 although xORCSDB2BY1 will partially overwrite this
-         IF( WANTU2 ) THEN
-            CALL SLASET( 'A', P, P, 0.0E0, 1.0E0, U2, LDU2 )
-         ENDIF
-      ELSE
-         CALL SLACPY( 'A', P, N, B, LDB, WORK( IG21 ), LDG )
-      END IF
-*
 *     Compute the Frobenius norm of matrix G
 *
       IF( NORMB.LE.UNFL ) THEN
@@ -853,8 +789,7 @@
       ELSE
          NORMG = NORMB * SQRT( 1.0E0 + ( ( W * NORMA ) / NORMB )**2 )
       ENDIF
-*     Do not use NG here because the round-off error depends on the
-*     original number of columns.
+*
       ABSTOLG = TOL * MAX( ROWSA + ROWSB, N ) * MAX( NORMG, UNFL )
 *
       IF( ISNAN(NORMG) ) THEN
@@ -863,67 +798,148 @@
          RETURN
       ENDIF
 *
-*     Maybe pre-process G by computing an LQ factorization
+      CALL SLASCL( 'G', -1, -1, 1.0E0, W, M, N, A, LDA, INFO )
+      IF ( INFO.NE.0 ) THEN
+         RETURN
+      ENDIF
 *
-      PREPROCESSG = MAYBEPREPG .AND. 2 * ( ROWSA + ROWSB ).LE.N
+*     Remove unnecessary matrix columns
 *
       IF( PREPROCESSG ) THEN
-*        assert!( ITAUGR - ITAUGL >= ROWSA + ROWSB );
-*        assert!( WANTX );
-         NG = ROWSA + ROWSB
+*        assert!( 2 * (m + p) <= n );
+         CALL SGETRP( M, N, A, LDA, WORK( IMAT ), LDG, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         ENDIF
+         CALL SGETRP( P, N, B, LDB, WORK( IMAT + M * LDG ), LDG, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         ENDIF
 *
-         CALL SLACPY( 'A', NG, N, WORK( IG ), LDG, X, LDX )
-         CALL SGETRP( NG, N, X, LDX, WORK( IG ), N, INFO )
+         IWORK( 1:M+P ) = 0
+         CALL SGEQP3( N, M + P, WORK( IMAT ), LDG,
+     $                IWORK, WORK( ITAUGL ),
+     $                WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
+*        Determine the rank of G
+         RANK = 0
+         DO I = 0, M + P - 1
+            IF( ABS( WORK( IMAT + ( I * LDG + I ) ) ).LE.ABSTOLG ) THEN
+               EXIT
+            END IF
+            RANK = RANK + 1
+         END DO
+         COLS = RANK
+*        Multiply orthogonal factor with A
+         CALL SORMQR( 'R', 'N', M, N, RANK, WORK( IMAT ), LDG,
+     $                WORK( ITAUGL ), A, LDA,
+     $                WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         ENDIF
+*        Multiply orthogonal factor with B
+         CALL SORMQR( 'R', 'N', P, N, RANK, WORK( IMAT ), LDG,
+     $                WORK( ITAUGL ), B, LDB,
+     $                WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         ENDIF
+*        Save upper half of elementary reflectors; this half will be
+*        re-used  by G
+         IF( WANTX ) THEN
+            CALL SLACPY( 'L', ROWSA + ROWSB, COLS, WORK( IMAT ), LDG,
+     $                   X( 1, RANK + 1 ), LDX )
+         ENDIF
+      ENDIF
+*
+*     Attempt to remove unnecessary matrix rows
+*     Copy matrices A, B or their full-rank factors, respectively, into
+*     the LDG x N matrix G
+*
+      IF( PREPROCESSA ) THEN
+         IWORK( 1:COLS ) = 0
+         CALL SGEQP3( M, COLS, A, LDA, IWORK, WORK( ITAUA ),
+     $                WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
          IF( INFO.NE.0 ) THEN
             RETURN
          END IF
-         CALL SLASET( 'A', NG, N, NAN, NAN, X, LDX )
-*
-         IWORK( 1:NG ) = 0
-         CALL SGEQP3( N, NG, WORK( IG ), N, IWORK, WORK( ITAUGL ),
-     $           WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
-         IF( INFO.NE.0 ) THEN
-            RETURN
-         END IF
-*
-         CALL SGETRP( N, NG, WORK( IG ), N, X, LDX, INFO )
-         IF( INFO.NE.0 ) THEN
-            RETURN
-         END IF
-         CALL SLACPY( 'A', NG, N, X, LDX, WORK( IG ), LDG )
-*
-*        Save the first NG columns of the elementary reflectors in the
-*        strictly upper triangular part before overwriting this part
-*        with zeros for the QR, CS decomposition.
-         CALL SLASET( 'A', NG, N, NAN, NAN, X, LDX )
-         CALL SLACPY( 'U', NG, NG, WORK( IG ), LDG,
-     $                X( 1, NG + 1 ), LDX )
-         IF( NG.GT.1 ) THEN
-            CALL SLASET( 'U', NG, NG - 1, 0.0E0, 0.0E0,
-     $                   WORK( IG + 1 * LDG ), LDG )
+*        Determine rank of A
+         ROWSA = 0
+         DO I = 1, MIN( M, COLS )
+            IF( ABS( A( I, I ) ).LE.ABSTOLA ) THEN
+               EXIT
+            ENDIF
+            ROWSA = ROWSA + 1
+         END DO
+         IG21 = IG11 + ROWSA
+*        Copy full rank part into G
+         CALL SLASET( 'L', ROWSA, COLS, 0.0E0, 0.0E0,
+     $                WORK( IG11 ), LDG )
+         CALL SLACPY( 'U', ROWSA, COLS, A, LDA, WORK( IG11 ), LDG )
+         CALL SLAPMT( .FALSE., ROWSA, COLS, WORK( IG11 ), LDG, IWORK )
+*        Initialize U1 although xORCSDB2BY1 will partially overwrite this
+         IF( WANTU1 ) THEN
+             CALL SLASET( 'A', M, M, 0.0E0, 1.0E0, U1, LDU1 )
          ENDIF
       ELSE
+         CALL SLACPY( 'A', M, COLS, A, LDA, WORK( IG11 ), LDG )
+      END IF
+*
+      IF( PREPROCESSB ) THEN
+         IWORK( 1:COLS ) = 0
+         CALL SGEQP3( P, COLS, B, LDB, IWORK, WORK( ITAUB ),
+     $                WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
+         IF( INFO.NE.0 ) THEN
+            RETURN
+         END IF
+*        Determine rank
+         ROWSB = 0
+         DO I = 1, MIN( P, COLS )
+            IF( ABS( B( I, I ) ).LE.ABSTOLB ) THEN
+               EXIT
+            END IF
+            ROWSB = ROWSB + 1
+         END DO
+*        Copy full rank part into G
+         CALL SLASET( 'L', ROWSB, COLS, 0.0E0, 0.0E0,
+     $                WORK( IG21 ), LDG )
+         CALL SLACPY( 'U', ROWSB, COLS, B, LDB, WORK( IG21 ), LDG )
+         CALL SLAPMT( .FALSE., ROWSB, COLS, WORK( IG21 ), LDG, IWORK )
+*        Initialize U2 although xORCSDB2BY1 will partially overwrite this
+         IF( WANTU2 ) THEN
+            CALL SLASET( 'A', P, P, 0.0E0, 1.0E0, U2, LDU2 )
+         ENDIF
+      ELSE
+         CALL SLACPY( 'A', P, COLS, B, LDB, WORK( IG21 ), LDG )
+      END IF
+*
+*     Compute QR decomposition of G
+*
+      IF( PREPROCESSG ) THEN
+*        assert!( COLS < N );
+         CALL SGEQRF( ROWSA + ROWSB, COLS, WORK( IG11 ), LDG,
+     $                WORK( ITAUGR ),
+     $                WORK( ISCRATCH ), LWORK - ISCRATCH + 1, INFO )
+      ELSE
+*        assert!( COLS == N );
+*        assert!( RANK < 0 );
 *
 *        Compute the QR factorization with column pivoting GΠ = Q1 R1
-*
          IWORK( 1:N ) = 0
-         CALL SGEQP3( ROWSA + ROWSB, NG, WORK( IG ), LDG, IWORK,
+         CALL SGEQP3( ROWSA + ROWSB, COLS, WORK( IG11 ), LDG, IWORK,
      $                WORK( ITAUGR ),
      $                WORK( ISCRATCH ), LWORK - ISCRATCH + 1, INFO )
          IF( INFO.NE.0 ) THEN
             RETURN
          END IF
+*        Determine the rank of G
+         RANK = 0
+         DO I = 0, MIN( ROWSA + ROWSB, N ) - 1
+            IF( ABS( WORK( IMAT + ( I * LDG + I ) ) ).LE.ABSTOLG ) THEN
+               EXIT
+            END IF
+            RANK = RANK + 1
+         END DO
       ENDIF
-*
-*     Determine the rank of G
-*
-      RANK = 0
-      DO I = 0, MIN( ROWSA + ROWSB, NG ) - 1
-         IF( ABS( WORK( IG + ( I * LDG + I ) ) ).LE.ABSTOLG ) THEN
-            EXIT
-         END IF
-         RANK = RANK + 1
-      END DO
 *
 *     Handle rank=0 case
 *
@@ -939,34 +955,28 @@
          RETURN
       END IF
 *
-      IF( PREPROCESSG ) THEN
-         CALL SLAPMR( .FALSE., NG, NG, WORK( IG ), LDG, IWORK )
-*        DEBUG
-         IWORK( 1:NG ) = -1
-         CALL SGEQRF( NG, NG, WORK( IG ), LDG, WORK( ITAUGR ),
-     $                WORK( ISCRATCH ), LWORK - ISCRATCH + 1, INFO )
-         IF( INFO.NE.0 ) THEN
-            RETURN
-         END IF
-      ENDIF
-*
 *     Copy R1( 1:RANK, : ) into A, B
 *
       IF( WANTX ) THEN
          IF( RANK.LE.M ) THEN
-            CALL SLACPY( 'U', RANK, NG, WORK( IG ), LDG, A, LDA )
+            CALL SLACPY( 'U', RANK, COLS, WORK( IG11 ), LDG, A, LDA )
          ELSE
-            CALL SLACPY( 'U', M, NG, WORK( IG ), LDG, A, LDA )
-            CALL SLACPY( 'U', RANK - M, NG - M, WORK( IG22 ), LDG,
+            CALL SLACPY( 'U', M, COLS, WORK( IG11 ), LDG, A, LDA )
+            CALL SLACPY( 'U', RANK - M, COLS - M, WORK( IG22 ), LDG,
      $                   B, LDB )
          END IF
       END IF
 *     DEBUG
-      CALL SLASET( 'U', RANK, NG, NAN, NAN, WORK( IG ), LDG )
+      IF( PREPROCESSG ) THEN
+          CALL SLASET( 'U', N, COLS, NAN, NAN, WORK( IG11 ), LDG )
+      ELSE
+          CALL SLASET( 'U', RANK, COLS, NAN, NAN, WORK( IG11 ), LDG )
+      ENDIF
 *
 *     Explicitly form Q1 so that we can compute the CS decomposition
 *
-      CALL SORGQR( ROWSA + ROWSB, RANK, RANK, WORK( IG ), LDG,
+*
+      CALL SORGQR( ROWSA + ROWSB, RANK, RANK, WORK( IG11 ), LDG,
      $             WORK( ITAUGR ),
      $             WORK( ISCRATCH ), LWORK - ISCRATCH + 1, INFO )
       IF ( INFO.NE.0 ) THEN
@@ -1017,7 +1027,7 @@
      $                 BETA( K1P - K1 + 1 ),
      $                 U1, LDU1, U2, LDU2, X, LDX,
      $                 WORK( ITAUGR ), LWORK - ITAUGR + 1,
-     $                 IWORK( NG + 1 ), INFO )
+     $                 IWORK( COLS + 1 ), INFO )
       IF( INFO.NE.0 ) THEN
          RETURN
       END IF
@@ -1030,53 +1040,57 @@
 *     first to minimize the FLOP count.
 *
       IF( WANTX ) THEN
+*        Move upper half of elementary reflectors of LQ back
+         IF( PREPROCESSG ) THEN
+            CALL SLACPY( 'L', ROWSA + ROWSB, COLS, X( 1,RANK + 1 ), LDX,
+     $                   WORK( IG11 ), LDG )
+*           Debug
+            CALL SLASET( 'A', RANK, N - RANK, NAN, NAN,
+     $                   X( 1, RANK + 1 ), LDX )
+         ENDIF
+*
          IF ( RANK.LE.M ) THEN
-            CALL SGEMM( 'N', 'N', RANK, NG - RANK, RANK,
-     $                  1.0E0, X, LDX, A( 1, RANK + 1 ), LDA,
-     $                  0.0E0, X( 1, RANK + 1 ), LDX )
+            IF( COLS.GT.RANK ) THEN
+               CALL SGEMM( 'N', 'N', RANK, COLS - RANK, RANK,
+     $                     1.0E0, X, LDX, A( 1, RANK + 1 ), LDA,
+     $                     0.0E0, X( 1, RANK + 1 ), LDX )
+            END IF
             CALL STRMM( 'R', 'U', 'N', 'N', RANK, RANK, 1.0E0,
      $                  A, LDA, X, LDX )
          ELSE
-            CALL SLACPY( 'U', M, NG, A, LDA, WORK( IG ), LDG )
-            CALL SLACPY( 'U', RANK - M, NG - M, B, LDB,
+            CALL SLACPY( 'U', M, COLS, A, LDA, WORK( IG11 ), LDG )
+            CALL SLACPY( 'U', RANK - M, COLS - M, B, LDB,
      $                   WORK( IG22 ), LDG )
-            CALL SGEMM( 'N', 'N', RANK, NG - RANK, RANK,
-     $                  1.0E0, X, LDX,
-     $                  WORK( IG + RANK * LDG ), LDG,
-     $                  0.0E0, X( 1, RANK + 1 ), LDX )
+            IF( COLS.GT.RANK ) THEN
+               CALL SGEMM( 'N', 'N', RANK, COLS - RANK, RANK,
+     $                     1.0E0, X, LDX,
+     $                     WORK( IG11 + RANK * LDG ), LDG,
+     $                     0.0E0, X( 1, RANK + 1 ), LDX )
+            ENDIF
             CALL STRMM( 'R', 'U', 'N', 'N', RANK, RANK, 1.0E0,
-     $                  WORK( IG ), LDG, X, LDX )
+     $                  WORK( IG11 ), LDG, X, LDX )
          END IF
-*        Revert column permutation Π by permuting the columns of X
-         IF( .NOT.PREPROCESSG ) THEN
-            CALL SLAPMT( .FALSE., RANK, NG, X, LDX, IWORK )
-         ENDIF
 *
          IF( PREPROCESSG ) THEN
-            CALL SLACPY( 'U', RANK, NG, X( 1, NG + 1 ), LDX,
-     $                   WORK( IG ), LDG )
-*           Is extending the matrix to RANKxN necessary or can one fool
-*           SORMLQ by pretending to have an orthogonal matrix with only
-*           NG columns?
-            CALL SLASET( 'A', RANK, N - NG, 0.0E0, 0.0E0,
-     $                   X( 1, NG + 1 ), LDX )
-            CALL SORMLQ( 'R', 'N', RANK, N, NG, WORK( IG ), LDG,
+            CALL SLASET( 'G', RANK, N - RANK, 0.0E0, 0.0E0,
+     $                   X( 1, RANK + 1 ), LDX )
+            CALL SORMQR( 'R', 'T', RANK, N, RANK, WORK( IMAT ), LDG,
      $                   WORK( ITAUGL ), X, LDX,
      $                   WORK( ITAUGR ), LWORK - ITAUGR + 1, INFO )
-            IF( INFO.NE.0 ) THEN
-               RETURN
-            ENDIF
+         ELSE
+*           Revert column permutation Π by permuting the columns of X
+            CALL SLAPMT( .FALSE., RANK, COLS, X, LDX, IWORK )
          ENDIF
       ENDIF
 *     DEBUG
-      WORK( IG:LWORK ) = NAN
+      WORK( IMAT:LWORK ) = NAN
 *
 *     Apply orthogonal factors of QR decomposition of A, B to U1, U2
 *
       IF( PREPROCESSA .AND. WANTU1 ) THEN
          CALL SORMQR( 'L', 'N', M, M, ROWSA, A, LDA,
      $                WORK( ITAUA ), U1, LDU1,
-     $                WORK( IG ), LWORK - IG + 1, INFO )
+     $                WORK( IMAT ), LWORK - IMAT + 1, INFO )
          IF( INFO.NE.0 ) THEN
             RETURN
          ENDIF
@@ -1085,7 +1099,7 @@
       IF( PREPROCESSB .AND. WANTU2 ) THEN
          CALL SORMQR( 'L', 'N', P, P, ROWSB, B, LDB,
      $                WORK( ITAUB ), U2, LDU2,
-     $                WORK( IG ), LWORK - IG + 1, INFO )
+     $                WORK( IMAT ), LWORK - IMAT + 1, INFO )
          IF( INFO.NE.0 ) THEN
             RETURN
          ENDIF
