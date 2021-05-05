@@ -73,6 +73,7 @@
       PARAMETER          ( ONE = 1.0D+0, ZERO = 0.0D+0 )
 *     ..
 *     .. Local Scalars ..
+      LOGICAL            SWAPPED
       CHARACTER*2        C2
       INTEGER            DUMMYK, DUMMYL, I, IFST, ILO, IHI, ILST, INFO,
      $                   J, M, NCYCLE, NT, SDIM, LWORK
