@@ -37,7 +37,7 @@ set(SEIGTST schkee.F
    sget02.f sget10.f sget22.f sget23.f sget24.f sget31.f
    sget32.f sget33.f sget34.f sget35.f sget36.f
    sget37.f sget38.f sget39.f sget40.f sget51.f sget52.f sget53.f
-   sget54.f sglmts.f sgqrts.f sgrqts.f sgsvts3.f
+   sget54.f sglmts.f sgqrts.f sgrqts.f sgsvts3.f sgqrcst.f
    shst01.f slarfy.f slarhs.f slatm4.f slctes.f slctsx.f slsets.f sort01.f
    sort03.f ssbt21.f ssgt01.f sslect.f sspt21.f sstt21.f
    sstt22.f ssyt21.f ssyt22.f)

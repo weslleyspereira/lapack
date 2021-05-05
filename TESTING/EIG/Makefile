@@ -59,7 +59,7 @@ SEIGTST = schkee.o \
    sget02.o sget10.o sget22.o sget23.o sget24.o sget31.o \
    sget32.o sget33.o sget34.o sget35.o sget36.o \
    sget37.o sget38.o sget39.o sget40.o sget51.o sget52.o sget53.o \
-   sget54.o sglmts.o sgqrts.o sgrqts.o sgsvts3.o \
+   sget54.o sglmts.o sgqrts.o sgrqts.o sgsvts3.o sgqrcst.o \
    shst01.o slarfy.o slarhs.o slatm4.o slctes.o slctsx.o slsets.o sort01.o \
    sort03.o ssbt21.o ssgt01.o sslect.o sspt21.o sstt21.o \
    sstt22.o ssyt21.o ssyt22.o
