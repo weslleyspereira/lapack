@@ -580,8 +580,10 @@
              CALL SLACPY( 'U', M, N, WORK( IG ), LDG, A, LDA )
              CALL SLACPY( 'U', L - M, N - M, WORK( IG22 ), LDG, B, LDB )
 *
-             CALL SLASET( 'L', M - 1, N, 0.0E0, 0.0E0, A( 2, 1 ), LDA )
-             CALL SLASET( 'L', L-M-1, N, 0.0E0, 0.0E0, B( 2, 1 ), LDB )
+             IF( M.GT.1 ) CALL SLASET( 'L', M - 1, N,
+     $                                  0.0E0, 0.0E0, A( 2, 1 ), LDA )
+             IF( (L-M).GT.1 ) CALL SLASET( 'L', L-M-1, N,
+     $                                  0.0E0, 0.0E0, B( 2, 1 ), LDB )
          END IF
       END IF
 *
