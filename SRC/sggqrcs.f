@@ -19,7 +19,7 @@
 *  ===========
 *
 *       SUBROUTINE SGGQRCS( JOBU1, JOBU2, JOBX,
-*      $                    HINTPREPA, HINTPREPB,
+*      $                    HINTPREPA, HINTPREPB, HINTPREPCOLS,
 *      $                    M, N, P, RANK,
 *      $                    SWAPPED,
 *      $                    A, LDA, B, LDB,
@@ -173,6 +173,20 @@
 *>
 *>          On exit, the variable will be set to 'Y' if the matrix
 *>          was pre-processed, 'N' otherwise.
+*>          The variable may be modified by workspace queries.
+*>
+*>          See below for a discussion of pre-processing.
+*> \endverbatim
+*>
+*> \param[in,out] HINTPREPCOLS
+*> \verbatim
+*>          HINTPREPCOLS is CHARACTER*1
+*>          = 'Y':  Advises SGGQRCS to apply column pre-processing;
+*>          = 'N':  advises SGGQRCS not to apply column pre-processing;
+*>          = '?':  column pre-processing decision left to algorithm.
+*>
+*>          On exit, the variable will be set to 'Y' if column
+*<          pre-processing step was applied, 'N' otherwise.
 *>          The variable may be modified by workspace queries.
 *>
 *>          See below for a discussion of pre-processing.
@@ -372,11 +386,6 @@
 *>  ITAUGR  INTEGER
 *>          The index of the first scalar factor of the elementary
 *>          reflectors of the QR decomposition of G.
-*>
-*>  MAYBEPREPG LOGICAL
-*>          Pre-processing the matrix G requires dedicated workspace.
-*>          This variable captures the need to reserve this workspace
-*>          but it is not guaranteed that G will be pre-processed.
 *> \endverbatim
 *
 *  Authors:
@@ -412,6 +421,20 @@
 *>  columns. This design choice allows LAPACK implementations to
 *>  customize their pre-processing criteria.
 *>
+*>  SGGQRCS has a dedicated pre-processing step for matrix pairs with
+*>  more columns than rows (i.e., M + P < N). The column pre-processing
+*>  reduces the number of columns to dim(ran(G)) <= M + P, where
+*>  G = (A**T, W*B**T)**T; the larger N in comparison to M + P, the more
+*>  effective this step. If the rank of G is small in comparison to the
+*>  number of its columns, then it is recommended to pre-process the matrix
+*>  columns and to pass 'Y' as a pre-processing hint. If the matrix G
+*>  has (almost) full column rank, then the pre-processing may not speed up
+*>  the GSVD computation and it is best to pass 'N' as a pre-processing
+*>  hint. In cases where the matrix rank is not known or if the user
+*>  does not care, '?' should be passed as hint. SGGQRCS may ignore
+*>  these _hints_. The column pre-processing does not influence the
+*>  accuracy of the results.
+*>
 *>  SGGQRCS should be significantly faster than SGGSVD3 for large
 *>  matrices because the matrices A and B are reduced to a pair of
 *>  well-conditioned bidiagonal matrices instead of pairs of upper
@@ -428,7 +451,7 @@
 *>
 *  =====================================================================
       RECURSIVE SUBROUTINE SGGQRCS( JOBU1, JOBU2, JOBX,
-     $                              HINTPREPA, HINTPREPB,
+     $                              HINTPREPA, HINTPREPB, HINTPREPCOLS,
      $                              M, N, P, RANK,
      $                              SWAPPED,
      $                              A, LDA, B, LDB,
@@ -445,7 +468,8 @@
       IMPLICIT NONE
 *     .. Scalar Arguments ..
       LOGICAL            SWAPPED
-      CHARACTER          JOBU1, JOBU2, JOBX, HINTPREPA, HINTPREPB
+      CHARACTER          JOBU1, JOBU2, JOBX,
+     $                   HINTPREPA, HINTPREPB, HINTPREPCOLS
       INTEGER            INFO, LDA, LDB, LDU1, LDU2, LDX,
      $                   M, N, P, RANK, LWORK
       REAL               TOL
@@ -461,8 +485,7 @@
 *  =====================================================================
 *
 *     .. Local Scalars ..
-      LOGICAL            MAYBEPREPG,
-     $                   PREPROCESSA, PREPROCESSB, PREPROCESSG,
+      LOGICAL            PREPROCESSA, PREPROCESSB, PREPROCESSCOLS,
      $                   WANTU1, WANTU2, WANTX, LQUERY
       INTEGER            I, J,
      $                   K, K1, K2, KP, K1P, K2P,
@@ -523,26 +546,30 @@
      $                .OR. LSAME( HINTPREPB, '?' )
      $                .OR. LSAME( HINTPREPB, 'N' ) ) ) THEN
          INFO = -5
-      ELSE IF( M.LT.0 ) THEN
+      ELSE IF( .NOT.( LSAME( HINTPREPCOLS,'Y' )
+     $                .OR. LSAME( HINTPREPCOLS, '?' )
+     $                .OR. LSAME( HINTPREPCOLS, 'N' ) ) ) THEN
          INFO = -6
-      ELSE IF( N.LT.0 ) THEN
+      ELSE IF( M.LT.0 ) THEN
          INFO = -7
-      ELSE IF( P.LT.0 ) THEN
+      ELSE IF( N.LT.0 ) THEN
          INFO = -8
+      ELSE IF( P.LT.0 ) THEN
+         INFO = -9
       ELSE IF( LDA.LT.MAX( 1, M ) ) THEN
-         INFO = -12
+         INFO = -13
       ELSE IF( LDB.LT.MAX( 1, P ) ) THEN
-         INFO = -14
+         INFO = -15
       ELSE IF( LDU1.LT.1 .OR. ( WANTU1 .AND. LDU1.LT.M ) ) THEN
-         INFO = -18
+         INFO = -19
       ELSE IF( LDU2.LT.1 .OR. ( WANTU2 .AND. LDU2.LT.P ) ) THEN
-         INFO = -20
+         INFO = -21
       ELSE IF( LDX.LT.1 .OR. ( WANTX .AND. LDX.LT.RANKMAXG ) ) THEN
-         INFO = -22
-      ELSE IF( ISNAN(TOL) .OR. TOL.GT.1.0E0 ) THEN
          INFO = -23
+      ELSE IF( ISNAN(TOL) .OR. TOL.GT.1.0E0 ) THEN
+         INFO = -24
       ELSE IF( LWORK.LT.1 .AND. .NOT.LQUERY ) THEN
-         INFO = -25
+         INFO = -26
       END IF
 *
       IF( INFO.NE.0 ) THEN
@@ -557,7 +584,9 @@
      $ M.GT.N .OR. ( M.GT.0 .AND. .NOT.LSAME(HINTPREPA, 'N') )
       PREPROCESSB =
      $ P.GT.N .OR. ( P.GT.0 .AND. .NOT.LSAME(HINTPREPB, 'N') )
-      PREPROCESSG = 2 * ( M + P ).LE.N
+      PREPROCESSCOLS =
+     $ ( M + P.LT.N .AND. .NOT.WANTX .AND. LSAME( HINTPREPCOLS, 'Y' ))
+     $ .OR. ( 2 * ( M + P ).LE.N .AND. .NOT.LSAME(HINTPREPCOLS, 'N') )
 *
       RANK = -1
       COLS = N
@@ -572,7 +601,7 @@
          ROWSB = P
       ENDIF
 *     The leading dimension must never be zero
-      IF( PREPROCESSG ) THEN
+      IF( PREPROCESSCOLS ) THEN
          LDG = MAX( N, 1 )
       ELSE
          LDG = MAX( ROWSA + ROWSB, 1 )
@@ -592,7 +621,7 @@
       ITAUGL = IMAT + MAX( ROWSA + ROWSB, 1 ) * N
 *     TODO: reserving workspace for the scalar factors of the LQ
 *     factorization with row pivoting is only needed if WANTX
-      IF( PREPROCESSG ) THEN
+      IF( PREPROCESSCOLS ) THEN
          ITAUGR = ITAUGL + ROWSA + ROWSB
       ELSE
          ITAUGR = ITAUGL
@@ -635,7 +664,8 @@
 *     Make sure A is the matrix smaller in norm
 *
       IF( NORMA.GT.SQRT( 2.0E0 ) * NORMB ) THEN
-         CALL SGGQRCS( JOBU2, JOBU1, JOBX, HINTPREPB, HINTPREPA,
+         CALL SGGQRCS( JOBU2, JOBU1, JOBX,
+     $                 HINTPREPB, HINTPREPA, HINTPREPCOLS,
      $                 P, N, M, RANK,
      $                 SWAPPED,
      $                 B, LDB, A, LDA,
@@ -666,13 +696,18 @@
       ELSE
          HINTPREPB = 'N'
       ENDIF
+      IF( PREPROCESSCOLS ) THEN
+         HINTPREPCOLS = 'Y'
+      ELSE
+         HINTPREPCOLS = 'N'
+      ENDIF
 *
 *     Compute workspace
 *
       LWKMIN = 0
       LWKOPT = 0
 *
-      IF( PREPROCESSG ) THEN
+      IF( PREPROCESSCOLS ) THEN
          CALL SGEQP3( N, M + P, WORK( IMAT ), LDG, IWORK, WORK,
      $                WORK, -1, INFO )
          LWKMIN = MAX( LWKMIN, 3 * ( M + P ) + 1 + ITAUB )
@@ -693,7 +728,7 @@
          LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + IMAT )
       ENDIF
 *
-      IF( PREPROCESSG ) THEN
+      IF( PREPROCESSCOLS ) THEN
          CALL SGEQRF( ROWSA + ROWSB, RANKMAXG, WORK, LDG, WORK,
      $                WORK, -1, INFO )
          LWKMIN = MAX( LWKMIN, INT( WORK( 1 ) ) + ISCRATCH )
@@ -719,7 +754,7 @@
       LWKMIN = MAX( LWKMIN, INT( WORK( 1 ) ) + ITAUGR )
       LWKOPT = MAX( LWKOPT, INT( WORK( 1 ) ) + ITAUGR )
 *
-      IF( PREPROCESSG .AND. WANTX ) THEN
+      IF( PREPROCESSCOLS .AND. WANTX ) THEN
          I = ITAUGR - ITAUGL
          CALL SORMQR( 'R', 'T', I, N, I, WORK, LDG, WORK, X, LDX,
      $                WORK, -1, INFO )
@@ -805,7 +840,7 @@
 *
 *     Remove unnecessary matrix columns
 *
-      IF( PREPROCESSG ) THEN
+      IF( PREPROCESSCOLS ) THEN
 *        assert!( 2 * (m + p) <= n );
          CALL SGETRP( M, N, A, LDA, WORK( IMAT ), LDG, INFO )
          IF( INFO.NE.0 ) THEN
@@ -914,7 +949,7 @@
 *
 *     Compute QR decomposition of G
 *
-      IF( PREPROCESSG ) THEN
+      IF( PREPROCESSCOLS ) THEN
 *        assert!( COLS < N );
          CALL SGEQRF( ROWSA + ROWSB, COLS, WORK( IG11 ), LDG,
      $                WORK( ITAUGR ),
@@ -967,7 +1002,7 @@
          END IF
       END IF
 *     DEBUG
-      IF( PREPROCESSG ) THEN
+      IF( PREPROCESSCOLS ) THEN
           CALL SLASET( 'U', N, COLS, NAN, NAN, WORK( IG11 ), LDG )
       ELSE
           CALL SLASET( 'U', RANK, COLS, NAN, NAN, WORK( IG11 ), LDG )
@@ -1041,7 +1076,7 @@
 *
       IF( WANTX ) THEN
 *        Move upper half of elementary reflectors of LQ back
-         IF( PREPROCESSG ) THEN
+         IF( PREPROCESSCOLS ) THEN
             CALL SLACPY( 'L', ROWSA + ROWSB, COLS, X( 1,RANK + 1 ), LDX,
      $                   WORK( IG11 ), LDG )
 *           Debug
@@ -1071,7 +1106,7 @@
      $                  WORK( IG11 ), LDG, X, LDX )
          END IF
 *
-         IF( PREPROCESSG ) THEN
+         IF( PREPROCESSCOLS ) THEN
             CALL SLASET( 'G', RANK, N - RANK, 0.0E0, 0.0E0,
      $                   X( 1, RANK + 1 ), LDX )
             CALL SORMQR( 'R', 'T', RANK, N, RANK, WORK( IMAT ), LDG,
