@@ -30,10 +30,12 @@
 #include "xGGQRCS.hpp"
 #include "xGGSVD3.hpp"
 
+#include <cmath>
+#include <ctime>
+
 #include <boost/assert.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/test/unit_test.hpp>
-#include <ctime>
 
 
 namespace ggqrcs = lapack::ggqrcs;
@@ -1200,6 +1202,145 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 		}
 	}
 }
+
+
+template<typename Number>
+void xGGQRCS_test_switches_impl(
+	Number dummy,
+	std::size_t m, std::size_t n, std::size_t p,
+	std::size_t rank_A, std::size_t rank_B, std::size_t rank_G,
+	char hintprepa, char hintprepb, char hintprepcols,
+	typename tools::real_from<Number>::type w,
+	std::uint32_t seed)
+{
+	BOOST_VERIFY(rank_A <= std::min(m, n));
+	BOOST_VERIFY(rank_B <= std::min(p, n));
+	BOOST_VERIFY(rank_G >= std::max(rank_A, rank_B));
+	BOOST_VERIFY(rank_G <= rank_A + rank_B);
+	BOOST_VERIFY(hintprepa == 'Y' || hintprepa == 'N' || hintprepa == '?');
+	BOOST_VERIFY(hintprepb == 'Y' || hintprepb == 'N' || hintprepb == '?');
+	BOOST_VERIFY(
+		hintprepcols == 'Y' || hintprepcols == 'N' || hintprepcols == '?');
+	BOOST_VERIFY(std::isfinite(w));
+	BOOST_VERIFY(w > 0);
+
+	using Real = typename tools::real_from<Number>::type;
+
+	constexpr auto real_nan = tools::not_a_number<Real>::value;
+
+	BOOST_TEST_CONTEXT("m=" << m) {
+	BOOST_TEST_CONTEXT("n=" << n) {
+	BOOST_TEST_CONTEXT("p=" << p) {
+	BOOST_TEST_CONTEXT("rank(A)=" << rank_A) {
+	BOOST_TEST_CONTEXT("rank(B)=" << rank_B) {
+	BOOST_TEST_CONTEXT("rank(G)=" << rank_G) {
+	BOOST_TEST_CONTEXT("hintprepa=" << hintprepa) {
+	BOOST_TEST_CONTEXT("hintprepb=" << hintprepb) {
+	BOOST_TEST_CONTEXT("hintprepcols=" << hintprepcols) {
+	BOOST_TEST_CONTEXT("w=" << w) {
+	BOOST_TEST_CONTEXT("seed=" << seed) {
+
+	auto gen = std::mt19937(seed);
+	auto theta_dist = std::uniform_real_distribution<Real>(0, M_PI/2);
+
+	auto k = std::min({rank_A, rank_B, rank_A + rank_B - rank_G});
+	auto k1 = rank_G - rank_B;
+	auto k2 = rank_G - rank_A;
+	auto theta = ublas::vector<Real>(rank_G, real_nan);
+
+	BOOST_VERIFY(rank_G == k + k1 + k2);
+
+	for(auto i = std::size_t{0}; i < k1; ++i) {
+		theta[i] = 0;
+	}
+	for(auto i = k1; i < k1 + k; ++i) {
+		theta[i] = std::atan(std::tan(theta_dist(gen)) / w);
+	}
+	for(auto i = k1 + k; i < k1 + k + k2; ++i) {
+		theta[i] = M_PI_2;
+	}
+
+	auto log2_cond_X_min = 0;
+	auto log2_cond_X_max = std::numeric_limits<Real>::digits / 2;
+	auto log2_cond_dist =
+		std::uniform_int_distribution<int>(log2_cond_X_min, log2_cond_X_max);
+	auto log2_cond_X = log2_cond_dist(gen);
+	auto cond_X = std::ldexp(Real{1}, log2_cond_X);
+	auto X = tools::make_matrix_like(dummy, rank_G, n, cond_X, &gen);
+	auto U1 = tools::make_isometric_matrix_like(dummy, m, m, &gen);
+	auto U2 = tools::make_isometric_matrix_like(dummy, p, p, &gen);
+	auto ds = ggqrcs::assemble_diagonals_like(dummy, m, p, rank_G, theta);
+	auto D1 = ds.first;
+	auto D2 = ds.second;
+	auto A = ggqrcs::assemble_matrix(U1, D1, X);
+	auto B = ggqrcs::assemble_matrix(U2, D2, X);
+
+	// initialize caller
+	auto ldx = m + 11;
+	auto ldy = p + 5;
+	auto ldu1 = m + 13;
+	auto ldu2 = p + 7;
+	auto caller = ggqrcs::Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2);
+
+	ublas::subrange(caller.A, 0, m, 0, n) = A;
+	ublas::subrange(caller.B, 0, p, 0, n) = B;
+
+	caller.hint_preprocess_a = hintprepa;
+	caller.hint_preprocess_b = hintprepb;
+	caller.hint_preprocess_cols = hintprepb;
+	auto ret = caller();
+
+	check_results(ret, A, B, caller);
+
+	BOOST_CHECK_LE( caller.rank, rank_G );
+	}}}}}}}}}}}
+}
+
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(switches, Number, types)
+{
+	using Real = typename tools::real_from<Number>::type;
+
+	constexpr auto num_digits_2 = std::numeric_limits<Real>::digits;
+
+	auto gen = std::mt19937();
+	auto seed_dist = std::uniform_int_distribution<std::uint64_t>(0);
+
+	gen.discard(1u << 17);
+
+	constexpr char PREPROCESSING_HINTS[] = { 'Y', 'N', '?' };
+	
+	auto log2_w_dist =
+		std::uniform_int_distribution<int>(-num_digits_2, +num_digits_2);
+
+	for(auto m = std::size_t{0}; m < 4; ++m) {
+	for(auto p = std::size_t{0}; p < 4; ++p) {
+	for(auto n = std::size_t{0}; n <= 2 * (m + p) + 1; ++n) {
+	for(auto rank_A = std::size_t{0}; rank_A < std::min(m, n); ++rank_A) {
+	for(auto rank_B = std::size_t{0}; rank_B < std::min(p, n); ++rank_B) {
+	for(auto rank_G = std::max(rank_A, rank_B);
+		rank_G <= rank_A + rank_B;
+		++rank_G) {
+	for(auto hintprepa : PREPROCESSING_HINTS) {
+	for(auto hintprepb : PREPROCESSING_HINTS) {
+	for(auto hintprepcols : PREPROCESSING_HINTS) {
+		for(auto iteration = 0u; iteration < 1u; ++iteration)
+		{
+			auto seed = seed_dist(gen);
+			auto log2_w = log2_w_dist(gen);
+			auto w = std::ldexp(Real{1}, log2_w);
+
+			xGGQRCS_test_switches_impl(
+				Number{0},
+				m, n, p, rank_A, rank_B, rank_G,
+				hintprepa, hintprepb, hintprepcols,
+				w,
+				seed
+			);
+		}
+	}}}}}}}}}
+}
+
 
 
 BOOST_TEST_DECORATOR(* boost::unit_test::disabled())
