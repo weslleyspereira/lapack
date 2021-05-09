@@ -337,6 +337,7 @@ struct Caller
 	bool compute_x_p = true;
 	char hint_preprocess_a = '?';
 	char hint_preprocess_b = '?';
+	char hint_preprocess_cols = '?';
 	Integer rank = -1;
 	bool swapped_p = false;
 	std::size_t m, n, p;
@@ -419,7 +420,7 @@ struct Caller
 		auto lwork_opt_f = nan;
 		auto ret = lapack::xGGQRCS(
 			jobu1, jobu2, jobx,
-			&hint_preprocess_a, &hint_preprocess_b,
+			&hint_preprocess_a, &hint_preprocess_b, &hint_preprocess_cols,
 			m, n, p, &rank, &swapped_p,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
@@ -437,7 +438,7 @@ struct Caller
 
 		return lapack::xGGQRCS(
 			jobu1, jobu2, jobx,
-			&hint_preprocess_a, &hint_preprocess_b,
+			&hint_preprocess_a, &hint_preprocess_b, &hint_preprocess_cols,
 			m, n, p, &rank, &swapped_p,
 			&A(0, 0), lda, &B(0, 0), ldb,
 			&alpha(0), &beta(0),
@@ -607,9 +608,11 @@ std::pair<Real, Real> check_results(
 {
 	auto hint_pa = caller.hint_preprocess_a;
 	auto hint_pb = caller.hint_preprocess_b;
+	auto hint_pc = caller.hint_preprocess_cols;
 
 	BOOST_REQUIRE( hint_pa == 'Y' || hint_pa == 'N' );
 	BOOST_REQUIRE( hint_pb == 'Y' || hint_pb == 'N' );
+	BOOST_REQUIRE( hint_pc == 'Y' || hint_pc == 'N' );
 
 	auto m = caller.m;
 	auto n = caller.n;

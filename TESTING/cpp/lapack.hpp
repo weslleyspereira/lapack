@@ -93,6 +93,7 @@ extern "C"
 	void sggqrcs_(
 		char* jobu1, char* jobu2, char* jobx,
 		char* hint_preprocess_a, char* hint_preprocess_b,
+		char* hint_preprocess_cols,
 		lapack_int* m, lapack_int* n, lapack_int* p,
 		lapack_int* l, lapack_int* p_swapped_p,
 		float* A, lapack_int* lda, float* B, lapack_int* ldb,
@@ -105,7 +106,8 @@ extern "C"
 		lapack_int* iwork,
 		lapack_int* info,
 		std::size_t jobu1_len, std::size_t jobu2_len, std::size_t jobqt_len,
-		std::size_t hint_preprocess_a_len, std::size_t hint_preprocess_b_len
+		std::size_t hint_preprocess_a_len, std::size_t hint_preprocess_b_len,
+		std::size_t hint_preprocess_cols_len
 	);
 
 	void dggqrcs_(
@@ -456,6 +458,7 @@ inline integer_t xGESVD(
 inline integer_t xGGQRCS(
 	char jobu1, char jobu2, char jobx,
 	char* p_hint_preprocess_a, char* p_hint_preprocess_b,
+	char* p_hint_preprocess_cols,
 	integer_t m, integer_t n, integer_t p, integer_t* p_rank,
 	bool* p_swapped_p,
 	float* A, integer_t lda, float* B, integer_t ldb,
@@ -469,6 +472,7 @@ inline integer_t xGGQRCS(
 {
 	assert( p_hint_preprocess_a );
 	assert( p_hint_preprocess_b );
+	assert( p_hint_preprocess_cols );
 	assert( p_rank );
 	assert( p_swapped_p );
 	assert( p_alpha );
@@ -480,7 +484,7 @@ inline integer_t xGGQRCS(
 	integer_t swapped_p = -1;
 	sggqrcs_(
 		&jobu1, &jobu2, &jobx,
-		p_hint_preprocess_a, p_hint_preprocess_b,
+		p_hint_preprocess_a, p_hint_preprocess_b, p_hint_preprocess_cols,
 		&m, &n, &p, p_rank, &swapped_p,
 		A, &lda, B, &ldb,
 		p_alpha, p_beta,
@@ -488,7 +492,7 @@ inline integer_t xGGQRCS(
 		p_tol,
 		work, &lwork,
 		iwork, &info,
-		1, 1, 1, 1, 1);
+		1, 1, 1, 1, 1, 1);
 	*p_swapped_p = swapped_p != 0;
 	return info;
 }

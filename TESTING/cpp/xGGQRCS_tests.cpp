@@ -352,6 +352,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 	auto p = 8;
 	auto hpa = '?';
 	auto hpb = '?';
+	auto hpc = '?';
 	auto rank = -1;
 	auto swapped_p = false;
 	auto a = Matrix(m, n, 1);
@@ -365,7 +366,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(
 	auto work = Real{0};
 	auto iwork = -1;
 	auto info = lapack::xGGQRCS(
-		'Y', 'Y', 'Y', &hpa, &hpb,
+		'Y', 'Y', 'Y', &hpa, &hpb, &hpc,
 		m, n, p, &rank, &swapped_p,
 		&a(0, 0), m, &b(0, 0), p,
 		&alpha[0], &beta[0],
@@ -614,6 +615,7 @@ void xGGQRCS_test_zero_dimensions_impl(
 
 	auto hpa = '?';
 	auto hpb = '?';
+	auto hpc = '?';
 	auto k = std::max(std::min(m + p, n), one);
 	auto rank = Integer{-1};
 	auto swapped_p = false;
@@ -635,7 +637,7 @@ void xGGQRCS_test_zero_dimensions_impl(
 	auto work = std::vector<Number>(lwork, nan);
 	auto iwork = std::vector<Integer>(lwork, -1);
 	auto ret = lapack::xGGQRCS(
-		'Y', 'Y', 'N', &hpa, &hpb,
+		'Y', 'Y', 'N', &hpa, &hpb, &hpc,
 		m, n, p, &rank, &swapped_p,
 		&A(0, 0), lda, &B(0, 0), ldb,
 		&alpha[0], &beta[0],
