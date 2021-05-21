@@ -226,7 +226,7 @@
       CHARACTER*3        PATH
       INTEGER            I, IINFO, IM, IMAT, KLA, KLB, KUA, KUB, LDA,
      $                   LDB, LDQ, LDR, LDU, LDV, LWORK, M, MODEA,
-     $                   MODEB, N, NFAIL, NRUN, NT, P
+     $                   MODEB, N, NFAIL, NRUN, NT, P, LRWORK
       DOUBLE PRECISION   ANORM, BNORM, CNDNMA, CNDNMB
 *     ..
 *     .. Local Arrays ..
@@ -234,7 +234,8 @@
       DOUBLE PRECISION   RESULT( NTESTS )
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           ALAHDG, ALAREQ, ALASUM, DLATB9, ZGSVTS3, ZLATMS
+      EXTERNAL           ALAHDG, ALAREQ, ALASUM, DLATB9, ZGSVTS3,
+     $                   ZLATMS, ZGQRCST
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          ABS
@@ -255,7 +256,11 @@
       LDV = NMAX
       LDQ = NMAX
       LDR = NMAX
-      LWORK = NMAX*NMAX
+      CALL ZGGQRCS( 'Y', 'Y', 'Y', NMAX, NMAX, NMAX, IWORK(1), IWORK(2),
+     $              AF, LDA, BF, LDB, ALPHA, BETA, U, LDU, V, LDV, WORK,
+     $              -1, RWORK, -1, IWORK, INFO )
+      LWORK = MAX( NMAX*NMAX, INT(WORK(1)) )
+      LRWORK = INT( RWORK(1) )
 *
 *     Do for each value of M in MVAL.
 *
@@ -308,6 +313,47 @@
 *
 *           Print information about the tests that did not
 *           pass the threshold.
+*
+            DO 40 I = 1, NT
+               IF( RESULT( I ).GE.THRESH ) THEN
+                  IF( NFAIL.EQ.0 .AND. FIRSTT ) THEN
+                     FIRSTT = .FALSE.
+                     CALL ALAHDG( NOUT, PATH )
+                  END IF
+                  WRITE( NOUT, FMT = 9998 )M, P, N, IMAT, I,
+     $               RESULT( I )
+                  NFAIL = NFAIL + 1
+               END IF
+   40       CONTINUE
+            NRUN = NRUN + NT
+*
+*           Generate M by N matrix A
+*
+            CALL ZLATMS( M, N, DISTA, ISEED, TYPE, RWORK, MODEA, CNDNMA,
+     $                   ANORM, KLA, KUA, 'No packing', A, LDA, WORK,
+     $                   IINFO )
+            IF( IINFO.NE.0 ) THEN
+               WRITE( NOUT, FMT = 9999 )IINFO
+               INFO = ABS( IINFO )
+               GO TO 20
+            END IF
+*
+*           Generate P by N matrix B
+*
+            CALL ZLATMS( P, N, DISTB, ISEED, TYPE, RWORK, MODEB, CNDNMB,
+     $                   BNORM, KLB, KUB, 'No packing', B, LDB, WORK,
+     $                   IINFO )
+            IF( IINFO.NE.0 ) THEN
+               WRITE( NOUT, FMT = 9999 )IINFO
+               INFO = ABS( IINFO )
+               GO TO 20
+            END IF
+*
+            NT = 4
+*
+            CALL ZGQRCST( M, P, N, A, AF, LDA, B, BF, LDB, U, LDU, V,
+     $                    LDV, ALPHA, BETA, R, LDR, IWORK, WORK,
+     $                    LWORK, RWORK, LRWORK, RESULT )
 *
             DO 10 I = 1, NT
                IF( RESULT( I ).GE.THRESH ) THEN
