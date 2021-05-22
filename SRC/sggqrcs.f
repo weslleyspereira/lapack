@@ -649,13 +649,13 @@
       IOTA = -1
       W = -1
 *
-      IF( ISNAN(NORMA) ) THEN
+      IF( ISNAN(NORMA) .OR. NORMA.GT.HUGE(NORMA) ) THEN
          INFO = 101
          CALL XERBLA( 'SGGQRCS', INFO )
          RETURN
       ENDIF
 *
-      IF( ISNAN(NORMB) ) THEN
+      IF( ISNAN(NORMB) .OR. NORMB.GT.HUGE(NORMB) ) THEN
          INFO = 102
          CALL XERBLA( 'SGGQRCS', INFO )
          RETURN
@@ -827,7 +827,7 @@
 *
       ABSTOLG = TOL * MAX( ROWSA + ROWSB, N ) * MAX( NORMG, UNFL )
 *
-      IF( ISNAN(NORMG) ) THEN
+      IF( ISNAN(NORMG) .OR. NORMG.GT.HUGE(NORMG) ) THEN
          INFO = 103
          CALL XERBLA( 'SGGQRCS', INFO )
          RETURN
