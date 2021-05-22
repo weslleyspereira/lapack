@@ -1309,7 +1309,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(switches, Number, types)
 	gen.discard(1u << 17);
 
 	constexpr char PREPROCESSING_HINTS[] = { 'Y', 'N', '?' };
-	
+
 	auto log2_w_dist =
 		std::uniform_int_distribution<int>(-num_digits_2, +num_digits_2);
 
@@ -1341,6 +1341,103 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(switches, Number, types)
 	}}}}}}}}}
 }
 
+
+
+// expect failures because xLANGE overflows when it should not
+BOOST_TEST_DECORATOR(* boost::unit_test::expected_failures(3))
+BOOST_AUTO_TEST_CASE_TEMPLATE(overflow_checks, Number, types)
+{
+	using Integer = lapack::integer_t;
+	using Real = typename tools::real_from<Number>::type;
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
+	using ZeroMatrix = ublas::zero_matrix<Number>;
+
+	// "big M" from linear programming: a large, positive value
+	constexpr auto M = std::numeric_limits<Real>::max();
+	constexpr auto nan = tools::not_a_number<Number>::value;
+
+	auto jobu1 = 'N';
+	auto jobu2 = 'Y';
+	auto jobx = 'N';
+	auto hint_preprocess_a = '?';
+	auto hint_preprocess_b = '?';
+	auto hint_preprocess_cols = '?';
+	auto m = Integer{1};
+	auto n = Integer{2};
+	auto p = Integer{3};
+	auto rank_max = std::min(m + p, n);
+	auto rank = Integer{-1};
+	auto swapped_p = false;
+	auto lda = std::max(m, Integer{1});
+	auto a = Matrix(lda, n);
+	auto zero_a = ZeroMatrix(lda, n);
+	auto ldb = std::max(p, Integer{1});
+	auto b = Matrix(ldb, n);
+	auto zero_b = ZeroMatrix(ldb, n);
+	auto alpha = std::vector<Real>(rank_max, nan);
+	auto beta = std::vector<Real>(rank_max, nan);
+	auto ldu1 = std::max(m, Integer{1});
+	auto u1 = Matrix(ldu1, m);
+	auto ldu2 = std::max(p, Integer{1});
+	auto u2 = Matrix(ldu2, p);
+	auto ldx = std::max(rank_max, Integer{1});
+	auto x = Matrix(ldx, n);
+	auto tol = Real{-1};
+	auto lwork = std::max(10 * rank_max, Integer{128});
+	auto work = std::vector<Number>(lwork, nan);
+	auto iwork = std::vector<Integer>(m + n + p, -1);
+	auto call = [&] () -> Integer {
+		return lapack::xGGQRCS(
+			jobu1, jobu2, jobx,
+			&hint_preprocess_a, &hint_preprocess_b, &hint_preprocess_cols,
+			m, n, p, &rank, &swapped_p,
+			&a(0, 0), lda, &b(0, 0), ldb,
+			&alpha[0], &beta[0],
+			&u1(0, 0), ldu1, &u2(0, 0), ldu2, &x(0, 0), ldx,
+			&tol,
+			&work[0], lwork, &iwork[0]);
+	};
+
+	a = zero_a;
+	b = zero_b;
+	BOOST_CHECK_EQUAL( call(), 0 );
+
+	a = zero_a;
+	b = zero_b;
+	assert(n >= 2); // self-reminder
+	a(0, 0) = M;
+	a(0, 1) = M;
+	b(0, 0) = 1;
+	BOOST_CHECK_EQUAL( call(), 101 );
+
+	a = zero_a;
+	b = zero_b;
+	a(0, 0) = 1;
+	b(0, 0) = M;
+	b(0, 1) = M;
+	BOOST_CHECK_EQUAL( call(), 102 );
+
+	a = zero_a;
+	b = zero_b;
+	a(0, 0) = M;
+	b(0, 0) = M;
+	// check fails if xLANGE overflows
+	BOOST_CHECK_EQUAL( call(), 103 );
+
+	a = zero_a;
+	b = zero_b;
+	a(0, 0) = std::numeric_limits<Real>::min();
+	b(0, 0) = M;
+	// check fails if xLANGE overflows
+	BOOST_CHECK_EQUAL( call(), 104 );
+
+	a = zero_a;
+	b = zero_b;
+	a(0, 0) = M;
+	b(0, 0) = std::numeric_limits<Real>::min();
+	// check fails if xLANGE overflows
+	BOOST_CHECK_EQUAL( call(), 104 );
+}
 
 
 BOOST_TEST_DECORATOR(* boost::unit_test::disabled())
