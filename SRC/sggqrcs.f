@@ -354,9 +354,10 @@
 *>          < 0:  if INFO = -i, the i-th argument had an illegal value.
 *>          > 0:  One of the subroutines failed. Its name will be
 *>                printed by XERBLA.
-*>          101:  The norm of A is not a number of infinite.
-*>          102:  The norm of B is not a number of infinite.
-*>          103:  The norm of G is not a number of infinite.
+*>          101:  The norm of A is not a real finite number.
+*>          102:  The norm of B is not a real finite number.
+*>          103:  The norm of G is not a real finite number.
+*>          104:  The scaling factor W is not a real finite number.
 *> \endverbatim
 *
 *> \par Internal Parameters:
@@ -814,8 +815,13 @@
       IF( NORMA.EQ.0.0E0 ) THEN
          W = 1.0E0
       ELSE
-         W = BASE ** INT( LOG( NORMB / NORMA ) / LOG( BASE ) )
+         W = BASE ** INT( ( LOG(NORMB) - LOG(NORMA) ) / LOG( BASE ) )
       END IF
+      IF( ISNAN(W) .OR. W.GT.HUGE(W) ) THEN
+         INFO = 104
+         CALL XERBLA( 'SGGQRCS', INFO )
+         RETURN
+      ENDIF
 *
 *     Compute the Frobenius norm of matrix G
 *
