@@ -580,14 +580,48 @@
 *
 *     Initialize variables
 *
+      BASE = SLAMCH( 'B' )
+      ULP = SLAMCH( 'Precision' )
+      UNFL = SLAMCH( 'Safe Minimum' )
+      IF( TOL.LT.0.0E0 .AND. .NOT.LQUERY ) THEN
+         TOL = ULP
+      ENDIF
+*
+      NORMA = SLANGE( 'F', M, N, A, LDA, WORK )
+      NORMB = SLANGE( 'F', P, N, B, LDB, WORK )
+      ABSTOLA = TOL * MAX( M, N ) * MAX( NORMA, UNFL )
+      ABSTOLB = TOL * MAX( P, N ) * MAX( NORMB, UNFL )
+      ABSTOLG = -1
+      THETA = -1
+      IOTA = -1
+      W = -1
+*
+      IF( ISNAN(NORMA) .OR. NORMA.GT.HUGE(NORMA) ) THEN
+         INFO = 101
+         CALL XERBLA( 'SGGQRCS', INFO )
+         RETURN
+      ENDIF
+*
+      IF( ISNAN(NORMB) .OR. NORMB.GT.HUGE(NORMB) ) THEN
+         INFO = 102
+         CALL XERBLA( 'SGGQRCS', INFO )
+         RETURN
+      ENDIF
+*
       SWAPPED = .FALSE.
       PREPROCESSA =
-     $ M.GT.N .OR. ( M.GT.0 .AND. .NOT.LSAME(HINTPREPA, 'N') )
+     $ M.GT.N
+     $ .OR. ( M.GT.0 .AND. .NOT.LSAME(HINTPREPA, 'N') )
+     $ .OR. NORMA.EQ.0.0E0
       PREPROCESSB =
-     $ P.GT.N .OR. ( P.GT.0 .AND. .NOT.LSAME(HINTPREPB, 'N') )
+     $ P.GT.N
+     $ .OR. ( P.GT.0 .AND. .NOT.LSAME(HINTPREPB, 'N') )
       PREPROCESSCOLS =
-     $ ( M + P.LT.N .AND. .NOT.WANTX .AND. LSAME( HINTPREPCOLS, 'Y' ))
-     $ .OR. ( 2 * ( M + P ).LE.N .AND. .NOT.LSAME(HINTPREPCOLS, 'N') )
+     $ NORMA.GT.0
+     $ .AND. (
+     $   ( M + P.LT.N .AND. .NOT.WANTX .AND. LSAME( HINTPREPCOLS, 'Y' ))
+     $   .OR. ( 2 * ( M + P ).LE.N .AND. .NOT.LSAME(HINTPREPCOLS, 'N') )
+     $ )
 *
       RANK = -1
       COLS = N
@@ -633,34 +667,6 @@
       IG22 = IMAT + LDG * M + M
       LWKMIN = -1
       LWKOPT = -1
-*
-      BASE = SLAMCH( 'B' )
-      ULP = SLAMCH( 'Precision' )
-      UNFL = SLAMCH( 'Safe Minimum' )
-      IF( TOL.LT.0.0E0 .AND. .NOT.LQUERY ) THEN
-         TOL = ULP
-      ENDIF
-*
-      NORMA = SLANGE( 'F', M, N, A, LDA, WORK )
-      NORMB = SLANGE( 'F', P, N, B, LDB, WORK )
-      ABSTOLA = TOL * MAX( M, N ) * MAX( NORMA, UNFL )
-      ABSTOLB = TOL * MAX( P, N ) * MAX( NORMB, UNFL )
-      ABSTOLG = -1
-      THETA = -1
-      IOTA = -1
-      W = -1
-*
-      IF( ISNAN(NORMA) .OR. NORMA.GT.HUGE(NORMA) ) THEN
-         INFO = 101
-         CALL XERBLA( 'SGGQRCS', INFO )
-         RETURN
-      ENDIF
-*
-      IF( ISNAN(NORMB) .OR. NORMB.GT.HUGE(NORMB) ) THEN
-         INFO = 102
-         CALL XERBLA( 'SGGQRCS', INFO )
-         RETURN
-      ENDIF
 *
 *     Make sure A is the matrix smaller in norm
 *
