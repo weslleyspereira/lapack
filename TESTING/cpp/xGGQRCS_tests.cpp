@@ -1251,13 +1251,13 @@ void xGGQRCS_test_switches_impl(
 	BOOST_VERIFY(rank_G == k + k1 + k2);
 
 	for(auto i = std::size_t{0}; i < k1; ++i) {
-		theta[i] = 0;
+		theta[i] = M_PI_2;
 	}
 	for(auto i = k1; i < k1 + k; ++i) {
 		theta[i] = std::atan(std::tan(theta_dist(gen)) / w);
 	}
 	for(auto i = k1 + k; i < k1 + k + k2; ++i) {
-		theta[i] = M_PI_2;
+		theta[i] = 0;
 	}
 
 	auto log2_cond_X_min = 0;
