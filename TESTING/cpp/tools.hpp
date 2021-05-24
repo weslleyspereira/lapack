@@ -315,6 +315,34 @@ ublas::matrix<Number, ublas::column_major> make_matrix_like(
 	return A;
 }
 
+
+template<class Matrix>
+void print_matrix(const char* name, const Matrix& a) {
+	std::printf("%s\n", name);
+
+	for(auto i = std::size_t{0}; i < a.size1(); ++i) {
+		for(auto j = std::size_t{0}; j < a.size2(); ++j) {
+			if(j + 1 < a.size2()) {
+				std::printf("%+8.2e ", a(i, j));
+			}
+			else {
+				std::printf("%+8.2e\n", a(i, j));
+			}
+		}
+	}
+}
+
+template<class Matrix>
+void print_machine_readable_matrix(const char* identifier, const Matrix& a) {
+	static_assert(sizeof(typename Matrix::value_type) == sizeof(float), "");
+
+	for(auto i = std::size_t{0}; i < a.size1(); ++i) {
+		for(auto j = std::size_t{0}; j < a.size2(); ++j) {
+			std::printf("%s(%zu, %zu) = %+16.10e;\n", identifier, i, j, a(i, j));
+		}
+	}
+}
+
 }
 }
 
