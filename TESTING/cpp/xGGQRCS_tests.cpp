@@ -1226,6 +1226,7 @@ void xGGQRCS_test_switches_impl(
 	BOOST_VERIFY(w > 0);
 
 	using Real = typename tools::real_from<Number>::type;
+	using Matrix = ublas::matrix<Number, ublas::column_major>;
 
 	constexpr auto real_nan = tools::not_a_number<Real>::value;
 
@@ -1241,15 +1242,15 @@ void xGGQRCS_test_switches_impl(
 	BOOST_TEST_CONTEXT("w=" << w) {
 	BOOST_TEST_CONTEXT("seed=" << seed) {
 
-	auto gen = std::mt19937(seed);
-	auto theta_dist = std::uniform_real_distribution<Real>(0, M_PI/2);
-
 	auto k = std::min({rank_A, rank_B, rank_A + rank_B - rank_G});
 	auto k1 = rank_G - rank_B;
 	auto k2 = rank_G - rank_A;
-	auto theta = ublas::vector<Real>(rank_G, real_nan);
 
 	BOOST_VERIFY(rank_G == k + k1 + k2);
+
+	auto theta = ublas::vector<Real>(rank_G, real_nan);
+	auto gen = std::mt19937(seed);
+	auto theta_dist = std::uniform_real_distribution<Real>(0, M_PI/2);
 
 	for(auto i = std::size_t{0}; i < k1; ++i) {
 		theta[i] = M_PI_2;
@@ -1260,21 +1261,19 @@ void xGGQRCS_test_switches_impl(
 	for(auto i = k1 + k; i < k1 + k + k2; ++i) {
 		theta[i] = 0;
 	}
+	// ensure singular values are in descending order
+	std::sort(theta.data().begin(), theta.data().end(), std::greater<Real>());
 
-	auto log2_cond_X_min = 0;
-	auto log2_cond_X_max = std::numeric_limits<Real>::digits / 2;
+	auto log2_cond_min = 0;
+	auto log2_cond_max = std::numeric_limits<Real>::digits / 2;
 	auto log2_cond_dist =
-		std::uniform_int_distribution<int>(log2_cond_X_min, log2_cond_X_max);
-	auto log2_cond_X = log2_cond_dist(gen);
-	auto cond_X = std::ldexp(Real{1}, log2_cond_X);
-	auto X = tools::make_matrix_like(dummy, rank_G, n, cond_X, &gen);
-	auto U1 = tools::make_isometric_matrix_like(dummy, m, m, &gen);
-	auto U2 = tools::make_isometric_matrix_like(dummy, p, p, &gen);
-	auto ds = ggqrcs::assemble_diagonals_like(dummy, m, p, rank_G, theta);
-	auto D1 = ds.first;
-	auto D2 = ds.second;
-	auto A = ggqrcs::assemble_matrix(U1, D1, X);
-	auto B = ggqrcs::assemble_matrix(U2, D2, X);
+		std::uniform_int_distribution<int>(log2_cond_min,log2_cond_max);
+	auto log2_cond_A = log2_cond_dist(gen);
+	auto cond_A = std::ldexp(Real{1}, log2_cond_A);
+	auto A = Matrix(w * tools::make_matrix_like(dummy, m, n, cond_A, &gen));
+	auto log2_cond_B = log2_cond_dist(gen);
+	auto cond_B = std::ldexp(Real{1}, log2_cond_B);
+	auto B = tools::make_matrix_like(dummy, p, n, cond_B, &gen);
 
 	// initialize caller
 	auto ldx = m + 11;
@@ -1282,14 +1281,38 @@ void xGGQRCS_test_switches_impl(
 	auto ldu1 = m + 13;
 	auto ldu2 = p + 7;
 	auto caller = ggqrcs::Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2);
-
 	ublas::subrange(caller.A, 0, m, 0, n) = A;
 	ublas::subrange(caller.B, 0, p, 0, n) = B;
-
 	caller.hint_preprocess_a = hintprepa;
 	caller.hint_preprocess_b = hintprepb;
-	caller.hint_preprocess_cols = hintprepb;
+	caller.hint_preprocess_cols = hintprepcols;
+
 	auto ret = caller();
+
+	BOOST_REQUIRE_EQUAL(ret, 0);
+	BOOST_REQUIRE_GE(caller.rank, rank_G);
+
+	auto U1 = Matrix(ublas::subrange(caller.U1, 0, m, 0, m));
+	auto U2 = Matrix(ublas::subrange(caller.U2, 0, p, 0, p));
+	auto X = Matrix(ublas::subrange(caller.X, 0, rank_G, 0, n));
+	auto ds = ggqrcs::assemble_diagonals_like(dummy, m, p, rank_G, theta);
+	auto& D1 = ds.first;
+	auto& D2 = ds.second;
+
+	A = ggqrcs::assemble_matrix(U1, D1, X);
+	B = ggqrcs::assemble_matrix(U2, D2, X);
+
+	// re-run xGGQRCS
+	caller = ggqrcs::Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2);
+	ublas::subrange(caller.A, 0, m, 0, n) = A;
+	ublas::subrange(caller.B, 0, p, 0, n) = B;
+	caller.hint_preprocess_a = hintprepa;
+	caller.hint_preprocess_b = hintprepb;
+	caller.hint_preprocess_cols = hintprepcols;
+	//caller.compute_u1_p = jobu1;
+	//caller.compute_u2_p = jobu2;
+	//caller.compute_x_p = jobx;
+	ret = caller();
 
 	check_results(ret, A, B, caller);
 
