@@ -1217,6 +1217,7 @@ void xGGQRCS_test_switches_impl(
 	BOOST_VERIFY(rank_B <= std::min(p, n));
 	BOOST_VERIFY(rank_G >= std::max(rank_A, rank_B));
 	BOOST_VERIFY(rank_G <= rank_A + rank_B);
+	BOOST_VERIFY(rank_G <= std::min(m + p, n));
 	BOOST_VERIFY(hintprepa == 'Y' || hintprepa == 'N' || hintprepa == '?');
 	BOOST_VERIFY(hintprepb == 'Y' || hintprepb == 'N' || hintprepb == '?');
 	BOOST_VERIFY(
@@ -1319,7 +1320,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(switches, Number, types)
 	for(auto rank_A = std::size_t{0}; rank_A < std::min(m, n); ++rank_A) {
 	for(auto rank_B = std::size_t{0}; rank_B < std::min(p, n); ++rank_B) {
 	for(auto rank_G = std::max(rank_A, rank_B);
-		rank_G <= rank_A + rank_B;
+		rank_G <= std::min({m + p, n, rank_A + rank_B});
 		++rank_G) {
 	for(auto hintprepa : PREPROCESSING_HINTS) {
 	for(auto hintprepb : PREPROCESSING_HINTS) {
