@@ -351,21 +351,22 @@ struct Caller
 
 
 	Caller(std::size_t m_, std::size_t n_, std::size_t p_)
-		: Caller(m_, n_, p_, m_, p_, m_, p_, true, true, true)
+		: Caller(
+			m_, n_, p_, m_, p_, m_, p_, std::min(m_ + p_, n_), true, true, true)
 	{}
 
 	Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
 		std::size_t lda_, std::size_t ldb_,
-		std::size_t ldu1_, std::size_t ldu2_)
-		: Caller(m_, n_, p_, lda_, ldb_, ldu1_, ldu2_, true, true, true)
+		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldx_)
+		: Caller(m_, n_, p_, lda_, ldb_, ldu1_, ldu2_, ldx_, true, true, true)
 	{}
 
 	Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
 		bool compute_u1_p_, bool compute_u2_p_, bool compute_x_p_)
 		: Caller(
-			m_, n_, p_, m_, p_, m_, p_,
+			m_, n_, p_, m_, p_, m_, p_, std::min(m_ + p_, n_),
 			compute_u1_p_, compute_u2_p_, compute_x_p_
 		)
 	{}
@@ -373,7 +374,7 @@ struct Caller
 	Caller(
 		std::size_t m_, std::size_t n_, std::size_t p_,
 		std::size_t lda_, std::size_t ldb_,
-		std::size_t ldu1_, std::size_t ldu2_,
+		std::size_t ldu1_, std::size_t ldu2_, std::size_t ldx_,
 		bool compute_u1_p_, bool compute_u2_p_, bool compute_x_p_
 	) :
 		compute_u1_p(compute_u1_p_),
@@ -383,7 +384,7 @@ struct Caller
 		n(n_),
 		p(p_),
 		lda(lda_), ldb(ldb_),
-		ldu1(ldu1_), ldu2(ldu2_), ldx(std::min(m_+p_, n_)),
+		ldu1(ldu1_), ldu2(ldu2_), ldx(ldx_),
 		tol(-1),
 		A(lda, n, 0),
 		B(ldb, n, 0),
@@ -406,6 +407,21 @@ struct Caller
 		BOOST_VERIFY( ldx >= rank_max_g );
 		BOOST_VERIFY( !std::isnan(tol) );
 		BOOST_VERIFY( tol <= 1 );
+
+		for(auto j = std::size_t{0}; j < A.size2(); ++j)
+		{
+			for(auto i = m; i < A.size1(); ++i)
+			{
+				A(i, j) = tools::not_a_number<Number>::value;
+			}
+		}
+		for(auto j = std::size_t{0}; j < B.size2(); ++j)
+		{
+			for(auto i = p; i < B.size1(); ++i)
+			{
+				B(i, j) = tools::not_a_number<Number>::value;
+			}
+		}
 	}
 
 
@@ -436,7 +452,7 @@ struct Caller
 		work.resize( lwork_opt );
 		std::fill( work.begin(), work.end(), nan );
 
-		return lapack::xGGQRCS(
+		ret = lapack::xGGQRCS(
 			jobu1, jobu2, jobx,
 			&hint_preprocess_a, &hint_preprocess_b, &hint_preprocess_cols,
 			m, n, p, &rank, &swapped_p,
@@ -446,6 +462,48 @@ struct Caller
 			&tol,
 			&work(0), work.size(), &iwork(0)
 		);
+
+		// check for out-of-bounds accesses
+		for(auto j = std::size_t{0}; j < A.size2(); ++j)
+		{
+			for(auto i = m; i < A.size1(); ++i)
+			{
+				BOOST_REQUIRE(tools::nan_p(A(i, j)));
+			}
+		}
+		for(auto j = std::size_t{0}; j < B.size2(); ++j)
+		{
+			for(auto i = p; i < B.size1(); ++i)
+			{
+				BOOST_REQUIRE(tools::nan_p(B(i, j)));
+			}
+		}
+		for(auto j = std::size_t{0}; j < U1.size2(); ++j)
+		{
+			for(auto i = m; i < U1.size1(); ++i)
+			{
+				BOOST_REQUIRE(tools::nan_p(U1(i, j)));
+			}
+		}
+		for(auto j = std::size_t{0}; j < U2.size2(); ++j)
+		{
+			for(auto i = p; i < U2.size1(); ++i)
+			{
+				BOOST_REQUIRE(tools::nan_p(U2(i, j)));
+			}
+		}
+		for(auto j = std::size_t{0}; j < X.size2(); ++j)
+		{
+			// TODO: share code estimating the maximum possible rank with
+			// constructor
+			auto rank_g_max = std::min(m + p, n);
+			for(auto i = rank_g_max; i < X.size1(); ++i)
+			{
+				BOOST_REQUIRE(tools::nan_p(X(i, j)));
+			}
+		}
+
+		return ret;
 	}
 };
 

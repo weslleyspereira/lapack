@@ -1166,11 +1166,12 @@ void xGGQRCS_test_random_impl(
 	auto B = ggqrcs::assemble_matrix(U2, D2, X);
 
 	// initialize caller
-	auto ldx = m + 11;
-	auto ldy = p + 5;
+	auto lda = m + 11;
+	auto ldb = p + 5;
 	auto ldu1 = m + 13;
 	auto ldu2 = p + 7;
-	auto caller = ggqrcs::Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2);
+	auto ldx = std::min(m + p, n) + 6;
+	auto caller = ggqrcs::Caller<Number>(m, n, p, lda, ldb, ldu1, ldu2, ldx);
 
 	ublas::subrange(caller.A, 0, m, 0, n) = A;
 	ublas::subrange(caller.B, 0, p, 0, n) = B;
@@ -1348,11 +1349,12 @@ void xGGQRCS_test_switches_impl(
 	auto B = tools::make_matrix_like(dummy, p, n, cond_B, &gen);
 
 	// initialize caller
-	auto ldx = m + 11;
-	auto ldy = p + 5;
+	auto lda = m + 11;
+	auto ldb = p + 5;
 	auto ldu1 = m + 13;
 	auto ldu2 = p + 7;
-	auto caller = ggqrcs::Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2);
+	auto ldx = std::max(m + p, n) + 1;
+	auto caller = ggqrcs::Caller<Number>(m, n, p, lda, ldb, ldu1, ldu2, ldx);
 	ublas::subrange(caller.A, 0, m, 0, n) = A;
 	ublas::subrange(caller.B, 0, p, 0, n) = B;
 	caller.hint_preprocess_a = hintprepa;
@@ -1375,7 +1377,7 @@ void xGGQRCS_test_switches_impl(
 	B = ggqrcs::assemble_matrix(U2, D2, X);
 
 	// re-run xGGQRCS
-	caller = ggqrcs::Caller<Number>(m, n, p, ldx, ldy, ldu1, ldu2);
+	caller = ggqrcs::Caller<Number>(m, n, p, lda, ldb, ldu1, ldu2, ldx);
 	ublas::subrange(caller.A, 0, m, 0, n) = A;
 	ublas::subrange(caller.B, 0, p, 0, n) = B;
 	caller.hint_preprocess_a = hintprepa;
