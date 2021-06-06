@@ -1440,6 +1440,30 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(switches, Number, types)
 }
 
 
+BOOST_AUTO_TEST_CASE(regression_preprocessing_20210606)
+{
+	using Number = float;
+	using Real = typename tools::real_from<Number>::type;
+	auto m = std::size_t{2};
+	auto n = std::size_t{7};
+	auto p = std::size_t{3};
+	auto rank_A = std::size_t{1};
+	auto rank_B = std::size_t{2};
+	auto rank_G = std::size_t{3};
+	auto hintprepa = 'N';
+	auto hintprepb = 'Y';
+	auto hintprepcols = 'Y';
+	auto w = std::ldexp(Real{1}, 11);
+	auto seed = std::uint32_t{1751626807};
+	xGGQRCS_test_switches_impl(
+		Number{0},
+		m, n, p, rank_A, rank_B, rank_G,
+		hintprepa, hintprepb, hintprepcols,
+		w,
+		seed
+	);
+}
+
 
 // expect failures because xLANGE overflows when it should not
 BOOST_TEST_DECORATOR(* boost::unit_test::expected_failures(3))
