@@ -433,7 +433,7 @@ inline integer_t xGESVD(
 	integer_t info = -1;
 	sgesvd_(
 		&jobu, &jobvt, &m, &n, A, &lda, sigma, U, &ldu, Vt, &ldvt,
-		work, &lwork, &info);
+		work, &lwork, &info, 1, 1);
 	return info;
 }
 
@@ -449,7 +449,7 @@ inline integer_t xGESVD(
 	integer_t info = -1;
 	dgesvd_(
 		&jobu, &jobvt, &m, &n, A, &lda, sigma, U, &ldu, Vt, &ldvt,
-		work, &lwork, &info);
+		work, &lwork, &info, 1, 1);
 	return info;
 }
 
@@ -619,7 +619,8 @@ inline integer_t xGGSVD3(
 	sggsvd3_(
 		&jobu, &jobv, &jobq, &m, &n, &p, p_k, p_l,
 		A, &lda, B, &ldb, alpha, beta, U, &ldu, V, &ldv, Q, &ldq,
-		work, &lwork, iwork, &info);
+		work, &lwork, iwork, &info,
+		1, 1, 1);
 	return info;
 }
 
@@ -635,7 +636,8 @@ inline integer_t xGGSVD3(
 	dggsvd3_(
 		&jobu, &jobv, &jobq, &m, &n, &p, p_k, p_l,
 		A, &lda, B, &ldb, alpha, beta, U, &ldu, V, &ldv, Q, &ldq,
-		work, &lwork, iwork, &info);
+		work, &lwork, iwork, &info,
+		1, 1, 1);
 	return info;
 }
 
@@ -666,7 +668,8 @@ inline integer_t xGGSVD3(
 		reinterpret_cast<float _Complex*>(work), &lwork,
 		rwork,
 		iwork,
-		&info
+		&info,
+		1, 1, 1
 	);
 	return info;
 }
@@ -698,7 +701,8 @@ inline integer_t xGGSVD3(
 		reinterpret_cast<double _Complex*>(work), &lwork,
 		rwork,
 		iwork,
-		&info
+		&info,
+		1, 1, 1
 	);
 	return info;
 }
@@ -714,7 +718,8 @@ inline integer_t xHEEVD(
 
 	integer_t info = -1;
 	ssyevd_(
-		&jobz, &uplo, &n, A, &lda, lambda, work, &lwork, iwork, &liwork, &info);
+		&jobz, &uplo, &n, A, &lda, lambda, work, &lwork, iwork, &liwork, &info,
+		1, 1);
 	return info;
 }
 
@@ -727,7 +732,8 @@ inline integer_t xHEEVD(
 
 	integer_t info = -1;
 	dsyevd_(
-		&jobz, &uplo, &n, A, &lda, lambda, work, &lwork, iwork, &liwork, &info);
+		&jobz, &uplo, &n, A, &lda, lambda, work, &lwork, iwork, &liwork, &info,
+		1, 1);
 	return info;
 }
 
@@ -741,7 +747,7 @@ inline integer_t xHEGV(
 	integer_t info = -1;
 	ssygv_(
 		&itype, &jobz, &uplo, &n, A, &lda, B, &ldb, lambda,
-		work, &lwork, &info);
+		work, &lwork, &info, 1, 1);
 	return info;
 }
 
@@ -753,7 +759,7 @@ inline integer_t xHEGV(
 	integer_t info = -1;
 	dsygv_(
 		&itype, &jobz, &uplo, &n, A, &lda, B, &ldb, lambda,
-		work, &lwork, &info);
+		work, &lwork, &info, 1, 1);
 	return info;
 }
 
@@ -767,7 +773,7 @@ inline integer_t xHEGVD(
 	integer_t info = -1;
 	ssygvd_(
 		&itype, &jobz, &uplo, &n, A, &lda, B, &ldb, lambda,
-		work, &lwork, iwork, &liwork, &info);
+		work, &lwork, iwork, &liwork, &info, 1, 1);
 	return info;
 }
 
@@ -779,7 +785,7 @@ inline integer_t xHEGVD(
 	integer_t info = -1;
 	dsygvd_(
 		&itype, &jobz, &uplo, &n, A, &lda, B, &ldb, lambda,
-		work, &lwork, iwork, &liwork, &info);
+		work, &lwork, iwork, &liwork, &info, 1, 1);
 	return info;
 }
 
@@ -789,14 +795,14 @@ inline void xLACPY(
 	char uplo, integer_t m, integer_t n,
 	const float* A, integer_t lda, float* B, integer_t ldb )
 {
-	slacpy_( &uplo, &m, &n, A, &lda, B, &ldb );
+	slacpy_( &uplo, &m, &n, A, &lda, B, &ldb, 1 );
 }
 
 inline void xLACPY(
 	char uplo, integer_t m, integer_t n,
 	const double* A, integer_t lda, double* B, integer_t ldb )
 {
-	dlacpy_( &uplo, &m, &n, A, &lda, B, &ldb );
+	dlacpy_( &uplo, &m, &n, A, &lda, B, &ldb, 1 );
 }
 
 
@@ -806,7 +812,7 @@ inline float xLANGE(
 	const float* A, integer_t lda, float* work=nullptr)
 {
 	assert( (std::toupper(norm) != 'I') || work );
-	return slange_(&norm, &m, &n, A, &lda, work);
+	return slange_(&norm, &m, &n, A, &lda, work, 1);
 }
 
 inline double xLANGE(
@@ -814,7 +820,7 @@ inline double xLANGE(
 	const double* A, integer_t lda, double* work=nullptr)
 {
 	assert( (std::toupper(norm) != 'I') || work );
-	return dlange_(&norm, &m, &n, A, &lda, work);
+	return dlange_(&norm, &m, &n, A, &lda, work, 1);
 }
 
 
@@ -832,7 +838,7 @@ inline float xLANHE(
 	MKL_Set_Num_Threads_Local(num_threads);
 	return ret;
 #else
-	return slansy_(&norm, &uplo, &n, A, &lda, work);
+	return slansy_(&norm, &uplo, &n, A, &lda, work, 1, 1);
 #endif
 }
 
@@ -849,7 +855,7 @@ inline double xLANHE(
 	MKL_Set_Num_Threads_Local(num_threads);
 	return ret;
 #else
-	return dlansy_(&norm, &uplo, &n, A, &lda, work);
+	return dlansy_(&norm, &uplo, &n, A, &lda, work, 1, 1);
 #endif
 }
 
@@ -920,7 +926,7 @@ inline integer_t xLASCL(
 	integer_t m, integer_t n, float* A, integer_t lda)
 {
 	integer_t info = -1;
-	slascl_(&type, &kl, &ku, &cfrom, &cto, &m, &n, A, &lda, &info);
+	slascl_(&type, &kl, &ku, &cfrom, &cto, &m, &n, A, &lda, &info, 1);
 	return info;
 }
 
@@ -929,7 +935,7 @@ inline integer_t xLASCL(
 	integer_t m, integer_t n, double* A, integer_t lda)
 {
 	integer_t info = -1;
-	dlascl_(&type, &kl, &ku, &cfrom, &cto, &m, &n, A, &lda, &info);
+	dlascl_(&type, &kl, &ku, &cfrom, &cto, &m, &n, A, &lda, &info, 1);
 	return info;
 }
 
@@ -939,14 +945,14 @@ inline void xLASET(
 	char uplo, integer_t m, integer_t n,
 	float alpha, float beta, float* A, integer_t lda )
 {
-	slaset_( &uplo, &m, &n, &alpha, &beta, A, &lda );
+	slaset_( &uplo, &m, &n, &alpha, &beta, A, &lda, 1 );
 }
 
 inline void xLASET(
 	char uplo, integer_t m, integer_t n,
 	double alpha, double beta, double* A, integer_t lda )
 {
-	dlaset_( &uplo, &m, &n, &alpha, &beta, A, &lda );
+	dlaset_( &uplo, &m, &n, &alpha, &beta, A, &lda, 1 );
 }
 
 
@@ -1046,7 +1052,7 @@ inline integer_t xPSTRF(
 	float* p_work)
 {
 	integer_t info = -1;
-	spstrf_( &uplo, &n, A, &lda, p_piv, p_rank, &tol, p_work, &info );
+	spstrf_( &uplo, &n, A, &lda, p_piv, p_rank, &tol, p_work, &info, 1 );
 	return info;
 }
 
@@ -1056,7 +1062,7 @@ inline integer_t xPSTRF(
 	double* p_work)
 {
 	integer_t info = -1;
-	dpstrf_( &uplo, &n, A, &lda, p_piv, p_rank, &tol, p_work, &info );
+	dpstrf_( &uplo, &n, A, &lda, p_piv, p_rank, &tol, p_work, &info, 1 );
 	return info;
 }
 
@@ -1068,7 +1074,8 @@ inline integer_t xTRCON(
 {
 	integer_t info = -1;
 	strcon_(
-		&norm, &uplo, &diag, &n, A, &lda, p_rcond, p_work, p_iwork, &info );
+		&norm, &uplo, &diag, &n, A, &lda, p_rcond, p_work, p_iwork, &info,
+		1, 1, 1);
 	return info;
 }
 
@@ -1078,7 +1085,8 @@ inline integer_t xTRCON(
 {
 	integer_t info = -1;
 	dtrcon_(
-		&norm, &uplo, &diag, &n, A, &lda, p_rcond, p_work, p_iwork, &info );
+		&norm, &uplo, &diag, &n, A, &lda, p_rcond, p_work, p_iwork, &info,
+		1, 1, 1);
 	return info;
 }
 
@@ -1109,7 +1117,8 @@ inline integer_t xUNCSD2BY1(
 		&m, &p, &q,
 		X11, &ldx11, X21, &ldx21, theta,
 		U1, &ldu1, U2, &ldu2, V1t, &ldv1t,
-		work, &lwork, iwork, &info);
+		work, &lwork, iwork, &info,
+		1, 1, 1);
 	return info;
 }
 
@@ -1138,7 +1147,8 @@ inline integer_t xUNCSD2BY1(
 		&m, &p, &q,
 		X11, &ldx11, X21, &ldx21, theta,
 		U1, &ldu1, U2, &ldu2, V1t, &ldv1t,
-		work, &lwork, iwork, &info);
+		work, &lwork, iwork, &info,
+		1, 1, 1);
 	return info;
 }
 
@@ -1166,7 +1176,8 @@ inline integer_t xUNCSD2BY1(
 		reinterpret_cast<float _Complex*>(U2), &ldu2,
 		reinterpret_cast<float _Complex*>(V1t), &ldv1t,
 		reinterpret_cast<float _Complex*>(work), &lwork,
-		rwork, &lrwork, iwork, &info);
+		rwork, &lrwork, iwork, &info,
+		1, 1, 1);
 	return info;
 }
 
@@ -1194,7 +1205,8 @@ inline integer_t xUNCSD2BY1(
 		reinterpret_cast<double _Complex*>(U2), &ldu2,
 		reinterpret_cast<double _Complex*>(V1t), &ldv1t,
 		reinterpret_cast<double _Complex*>(work), &lwork,
-		rwork, &lrwork, iwork, &info
+		rwork, &lrwork, iwork, &info,
+		1, 1, 1
 	);
 	return info;
 }
