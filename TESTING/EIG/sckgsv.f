@@ -9,7 +9,7 @@
 *  ===========
 *
 *       SUBROUTINE SCKGSV( NM, MVAL, PVAL, NVAL, NMATS, ISEED, THRESH,
-*                          NMAX, A, AF, B, BF, U, V, Q, ALPHA, BETA, R,
+*                          NMAX, A, AF, B, BF, U, V, Q, X, ALPHA, BETA, R,
 *                          IWORK, WORK, RWORK, NIN, NOUT, INFO )
 *
 *       .. Scalar Arguments ..
@@ -21,7 +21,7 @@
 *      $                   PVAL( * )
 *       REAL               A( * ), AF( * ), ALPHA( * ), B( * ), BETA( * ),
 *      $                   BF( * ), Q( * ), R( * ), RWORK( * ), U( * ),
-*      $                   V( * ), WORK( * )
+*      $                   V( * ), X( * ), WORK( * )
 *       ..
 *
 *
@@ -131,6 +131,11 @@
 *>          Q is REAL array, dimension (NMAX*NMAX)
 *> \endverbatim
 *>
+*> \param[out] X
+*> \verbatim
+*>          X is REAL array, dimension (NMAX*NMAX)
+*> \endverbatim
+*>
 *> \param[out] ALPHA
 *> \verbatim
 *>          ALPHA is REAL array, dimension (NMAX)
@@ -193,7 +198,7 @@
 *
 *  =====================================================================
       SUBROUTINE SCKGSV( NM, MVAL, PVAL, NVAL, NMATS, ISEED, THRESH,
-     $                   NMAX, A, AF, B, BF, U, V, Q, ALPHA, BETA, R,
+     $                   NMAX, A, AF, B, BF, U, V, Q, X, ALPHA, BETA, R,
      $                   IWORK, WORK, RWORK, NIN, NOUT, INFO )
 *
 *  -- LAPACK test routine --
@@ -209,14 +214,14 @@
      $                   PVAL( * )
       REAL               A( * ), AF( * ), ALPHA( * ), B( * ), BETA( * ),
      $                   BF( * ), Q( * ), R( * ), RWORK( * ), U( * ),
-     $                   V( * ), WORK( * )
+     $                   V( * ), X( * ), WORK( * )
 *     ..
 *
 *  =====================================================================
 *
 *     .. Parameters ..
       INTEGER            NTESTS
-      PARAMETER          ( NTESTS = 12 )
+      PARAMETER          ( NTESTS = 6 )
       INTEGER            NTYPES
       PARAMETER          ( NTYPES = 8 )
 *     ..
@@ -225,7 +230,7 @@
       CHARACTER          DISTA, DISTB, TYPE
       CHARACTER*3        PATH
       INTEGER            I, IINFO, IM, IMAT, KLA, KLB, KUA, KUB, LDA,
-     $                   LDB, LDQ, LDR, LDU, LDV, LWORK, M, MODEA,
+     $                   LDB, LDQ, LDR, LDU, LDV, LDX, LWORK, M, MODEA,
      $                   MODEB, N, NFAIL, NRUN, NT, P
       REAL               ANORM, BNORM, CNDNMA, CNDNMB
 *     ..
@@ -234,7 +239,8 @@
       REAL               RESULT( NTESTS )
 *     ..
 *     .. External Subroutines ..
-      EXTERNAL           ALAHDG, ALAREQ, ALASUM, SGSVTS3, SLATB9, SLATMS
+      EXTERNAL           ALAHDG, ALAREQ, ALASUM, SGSVTS3, SLATB9,
+     $                   SLATMS, SGQRCST
 *     ..
 *     .. Intrinsic Functions ..
       INTRINSIC          ABS
@@ -253,9 +259,13 @@
       LDB = NMAX
       LDU = NMAX
       LDV = NMAX
+      LDX = NMAX
       LDQ = NMAX
       LDR = NMAX
-      LWORK = NMAX*NMAX
+      CALL SGGQRCS( 'Y', 'Y', 'Y', 'Y', 'Y', NMAX, NMAX, NMAX, IWORK(1),
+     $              IWORK(2), AF, LDA, BF, LDB, ALPHA, BETA, U, LDU,
+     $              V, LDV, X, LDX, -1, WORK, -1, IWORK, INFO )
+      LWORK = MAX( NMAX*NMAX, INT(WORK(1)) )
 *
 *     Do for each value of M in MVAL.
 *
@@ -302,6 +312,48 @@
 *
             CALL SGSVTS3( M, P, N, A, AF, LDA, B, BF, LDB, U, LDU, V,
      $                    LDV, Q, LDQ, ALPHA, BETA, R, LDR, IWORK, WORK,
+     $                    LWORK, RWORK, RESULT )
+*
+*           Print information about the tests that did not
+*           pass the threshold.
+*
+            DO 40 I = 1, NT
+               IF( RESULT( I ).GE.THRESH ) THEN
+                  IF( NFAIL.EQ.0 .AND. FIRSTT ) THEN
+                     FIRSTT = .FALSE.
+                     CALL ALAHDG( NOUT, PATH )
+                  END IF
+                  WRITE( NOUT, FMT = 9998 )M, P, N, IMAT, I,
+     $               RESULT( I )
+                  NFAIL = NFAIL + 1
+               END IF
+   40       CONTINUE
+            NRUN = NRUN + NT
+*
+*           Generate M by N matrix A
+*
+            CALL SLATMS( M, N, DISTA, ISEED, TYPE, RWORK, MODEA, CNDNMA,
+     $                   ANORM, KLA, KUA, 'No packing', A, LDA, WORK,
+     $                   IINFO )
+            IF( IINFO.NE.0 ) THEN
+               WRITE( NOUT, FMT = 9999 )IINFO
+               INFO = ABS( IINFO )
+               GO TO 20
+            END IF
+*
+            CALL SLATMS( P, N, DISTB, ISEED, TYPE, RWORK, MODEB, CNDNMB,
+     $                   BNORM, KLB, KUB, 'No packing', B, LDB, WORK,
+     $                   IINFO )
+            IF( IINFO.NE.0 ) THEN
+               WRITE( NOUT, FMT = 9999 )IINFO
+               INFO = ABS( IINFO )
+               GO TO 20
+            END IF
+*
+            NT = 4
+*
+            CALL SGQRCST( M, P, N, A, AF, LDA, B, BF, LDB, U, LDU, V,
+     $                    LDV, X, LDX, ALPHA, BETA, R, LDR, IWORK, WORK,
      $                    LWORK, RWORK, RESULT )
 *
 *           Print information about the tests that did not
