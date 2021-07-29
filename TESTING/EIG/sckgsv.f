@@ -9,7 +9,7 @@
 *  ===========
 *
 *       SUBROUTINE SCKGSV( NM, MVAL, PVAL, NVAL, NMATS, ISEED, THRESH,
-*                          NMAX, A, AF, B, BF, U, V, Q, ALPHA, BETA, R,
+*                          NMAX, A, AF, B, BF, U, V, Q, X, ALPHA, BETA, R,
 *                          IWORK, WORK, RWORK, NIN, NOUT, INFO )
 *
 *       .. Scalar Arguments ..
@@ -21,7 +21,7 @@
 *      $                   PVAL( * )
 *       REAL               A( * ), AF( * ), ALPHA( * ), B( * ), BETA( * ),
 *      $                   BF( * ), Q( * ), R( * ), RWORK( * ), U( * ),
-*      $                   V( * ), WORK( * )
+*      $                   V( * ), X( * ), WORK( * )
 *       ..
 *
 *
@@ -131,6 +131,11 @@
 *>          Q is REAL array, dimension (NMAX*NMAX)
 *> \endverbatim
 *>
+*> \param[out] X
+*> \verbatim
+*>          X is REAL array, dimension (NMAX*NMAX)
+*> \endverbatim
+*>
 *> \param[out] ALPHA
 *> \verbatim
 *>          ALPHA is REAL array, dimension (NMAX)
@@ -193,7 +198,7 @@
 *
 *  =====================================================================
       SUBROUTINE SCKGSV( NM, MVAL, PVAL, NVAL, NMATS, ISEED, THRESH,
-     $                   NMAX, A, AF, B, BF, U, V, Q, ALPHA, BETA, R,
+     $                   NMAX, A, AF, B, BF, U, V, Q, X, ALPHA, BETA, R,
      $                   IWORK, WORK, RWORK, NIN, NOUT, INFO )
 *
 *  -- LAPACK test routine --
@@ -209,7 +214,7 @@
      $                   PVAL( * )
       REAL               A( * ), AF( * ), ALPHA( * ), B( * ), BETA( * ),
      $                   BF( * ), Q( * ), R( * ), RWORK( * ), U( * ),
-     $                   V( * ), WORK( * )
+     $                   V( * ), X( * ), WORK( * )
 *     ..
 *
 *  =====================================================================
@@ -222,12 +227,12 @@
 *     ..
 *     .. Local Scalars ..
       LOGICAL            FIRSTT
-      CHARACTER          DISTA, DISTB, TYPE
+      CHARACTER          DISTA, DISTB, TYPE, CA, CB, CC
       CHARACTER*3        PATH
       INTEGER            I, IINFO, IM, IMAT, KLA, KLB, KUA, KUB, LDA,
-     $                   LDB, LDQ, LDR, LDU, LDV, LWORK, M, MODEA,
+     $                   LDB, LDQ, LDR, LDU, LDV, LDX, LWORK, M, MODEA,
      $                   MODEB, N, NFAIL, NRUN, NT, P
-      REAL               ANORM, BNORM, CNDNMA, CNDNMB
+      REAL               ANORM, BNORM, CNDNMA, CNDNMB, TOL
 *     ..
 *     .. Local Arrays ..
       LOGICAL            DOTYPE( NTYPES )
@@ -254,11 +259,17 @@
       LDB = NMAX
       LDU = NMAX
       LDV = NMAX
+      LDX = NMAX
       LDQ = NMAX
       LDR = NMAX
-      CALL SGGQRCS( 'Y', 'Y', 'Y', NMAX, NMAX, NMAX, IWORK(1), IWORK(2),
-     $              AF, LDA, BF, LDB, ALPHA, BETA, U, LDU, V, LDV, WORK,
-     $              -1, IWORK, INFO )
+*
+      TOL = -1
+      CA = 'Y'
+      CB = 'Y'
+      CC = 'Y'
+      CALL SGGQRCS( 'Y', 'Y', 'Y', CA, CB, CC, NMAX, NMAX, NMAX,
+     $              IWORK(1), IWORK(2), AF, LDA, BF, LDB, ALPHA, BETA,
+     $              U, LDU, V, LDV, X, LDX, TOL, WORK, -1, IWORK, INFO )
       LWORK = MAX( NMAX*NMAX, INT(WORK(1)) )
 *
 *     Do for each value of M in MVAL.
@@ -347,7 +358,7 @@
             NT = 4
 *
             CALL SGQRCST( M, P, N, A, AF, LDA, B, BF, LDB, U, LDU, V,
-     $                    LDV, ALPHA, BETA, R, LDR, IWORK, WORK,
+     $                    LDV, X, LDX, ALPHA, BETA, R, LDR, IWORK, WORK,
      $                    LWORK, RWORK, RESULT )
 *
 *           Print information about the tests that did not

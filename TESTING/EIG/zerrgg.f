@@ -80,7 +80,6 @@
       DOUBLE PRECISION   ANRM, BNRM, DIF, SCALE, TOLA, TOLB
 *     ..
 *     .. Local Arrays ..
-      LOGICAL            SWAPPED
       LOGICAL            BW( NMAX ), SEL( NMAX )
       INTEGER            IW( LW ), IDUM(NMAX)
       DOUBLE PRECISION   LS( NMAX ), R1( NMAX ), R2( NMAX ),

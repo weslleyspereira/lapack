@@ -226,7 +226,8 @@
 *     .. Local Scalars ..
       LOGICAL            SWAPPED
       INTEGER            I, INFO, J, L, K, K1, K2
-      DOUBLE PRECISION   ANORM, BNORM, RESID, TEMP, ULP, ULPINV, UNFL
+      DOUBLE PRECISION   ANORM, BNORM, RESID, TEMP, ULP, ULPINV, UNFL,
+     $                   TOL
 *     ..
 *     .. External Functions ..
       DOUBLE PRECISION   DLAMCH, ZLANGE, ZLANHE
@@ -254,9 +255,10 @@
 *
 *     Factorize the matrices A and B in the arrays AF and BF.
 *
+      TOL = -1
       CALL ZGGQRCS( 'Y', 'Y', 'Y', M, N, P, L, SWAPPED, AF, LDA,
-     $              BF, LDB, ALPHA, BETA, U, LDU, V, LDV, WORK, LWORK,
-     $              RWORK, LRWORK, IWORK, INFO )
+     $              BF, LDB, ALPHA, BETA, U, LDU, V, LDV, TOL,
+     $              WORK, LWORK, RWORK, LRWORK, IWORK, INFO )
       IF ( INFO.NE.0 ) THEN
          RESULT(1) = -1
          RESULT(2) = -1

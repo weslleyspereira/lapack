@@ -2415,9 +2415,9 @@
      $      CALL SERRGG( 'GSV', NOUT )
          CALL SCKGSV( NN, MVAL, PVAL, NVAL, NTYPES, ISEED, THRESH, NMAX,
      $                A( 1, 1 ), A( 1, 2 ), B( 1, 1 ), B( 1, 2 ),
-     $                A( 1, 3 ), B( 1, 3 ), A( 1, 4 ), TAUA, TAUB,
-     $                B( 1, 4 ), IWORK, WORK, D( 1, 1 ), NIN, NOUT,
-     $                INFO )
+     $                A( 1, 3 ), B( 1, 3 ), A( 1, 4 ), A( 1, 5 ), TAUA,
+     $                TAUB, B( 1, 4 ), IWORK, WORK, D( 1, 1 ), NIN,
+     $                NOUT, INFO )
          IF( INFO.NE.0 )
      $      WRITE( NOUT, FMT = 9980 )'SCKGSV', INFO
 *

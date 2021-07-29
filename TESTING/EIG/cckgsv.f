@@ -227,7 +227,7 @@
       INTEGER            I, IINFO, IM, IMAT, KLA, KLB, KUA, KUB, LDA,
      $                   LDB, LDQ, LDR, LDU, LDV, LWORK, M, MODEA,
      $                   MODEB, N, NFAIL, NRUN, NT, P, K, L, LRWORK
-      REAL               ANORM, BNORM, CNDNMA, CNDNMB
+      REAL               ANORM, BNORM, CNDNMA, CNDNMB, TOL
 *     ..
 *     .. Local Arrays ..
       LOGICAL            DOTYPE( NTYPES )
@@ -257,8 +257,8 @@
       LDQ = NMAX
       LDR = NMAX
       CALL CGGQRCS( 'Y', 'Y', 'Y', NMAX, NMAX, NMAX, IWORK(1), IWORK(2),
-     $              AF, LDA, BF, LDB, ALPHA, BETA, U, LDU, V, LDV, WORK,
-     $              -1, RWORK, -1, IWORK, INFO )
+     $              AF, LDA, BF, LDB, ALPHA, BETA, U, LDU, V, LDV, TOL,
+     $              WORK, -1, RWORK, -1, IWORK, INFO )
       LWORK = MAX( NMAX*NMAX, INT(WORK(1)) )
       LRWORK = INT(RWORK(1))
 *
