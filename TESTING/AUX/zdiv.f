@@ -142,15 +142,15 @@
           Y = cInf(i)
           R = czero / Y
           if( (R .ne. czero) .and. (R .eq. R) ) then
-              WRITE( *, FMT = 9998 ) czero, Y, R
+              WRITE( *, FMT = 9998 ) czero, Y, R, 'NaN and 0'
           endif
           R = cone / Y
-          if( (R .ne. 0.0d0) .and. (R .eq. R) ) then
-              WRITE( *, FMT = 9998 ) cone, Y, R
+          if( (R .ne. czero) .and. (R .eq. R) ) then
+              WRITE( *, FMT = 9998 ) cone, Y, R, 'NaN and 0'
           endif
           R = Y / Y
           if( R .eq. R ) then
-              WRITE( *, FMT = 9998 ) Y, Y, R
+              WRITE( *, FMT = 9998 ) Y, Y, R, 'NaN'
           endif
   70  continue
 *
@@ -159,21 +159,21 @@
           Y = cNaN(i)
           R = czero / Y
           if( R .eq. R ) then
-              WRITE( *, FMT = 9998 ) czero, Y, R
+              WRITE( *, FMT = 9998 ) czero, Y, R, 'NaN'
           endif
           R = cone / Y
           if( R .eq. R ) then
-              WRITE( *, FMT = 9998 ) cone, Y, R
+              WRITE( *, FMT = 9998 ) cone, Y, R, 'NaN'
           endif
           R = Y / Y
           if( R .eq. R ) then
-              WRITE( *, FMT = 9998 ) Y, Y, R
+              WRITE( *, FMT = 9998 ) Y, Y, R, 'NaN'
           endif
   80  continue
 *
  9998 FORMAT( ' ** (', (ES10.3,SP,ES10.3,"*I"), ' ) / ( ',
      $                 (ES10.3,SP,ES10.3,"*I"), ' ) = ',
-     $                 (ES10.3,SP,ES10.3,"*I"), ' is unexpected' )
+     $                 (ES10.3,SP,ES10.3,"*I"), ' differs from ', A10 )
 *
  9999 FORMAT( ' ** (', (ES10.3,SP,ES10.3,"*I"), ' ) / ( ',
      $                 (ES10.3,SP,ES10.3,"*I"), ' ) = ',

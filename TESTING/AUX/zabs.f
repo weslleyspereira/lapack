@@ -39,7 +39,7 @@
       parameter       ( N = 5, nNaN = 3, nInf = 5 )
 
       double precision  X( N ), R, threeFourth, fiveFourth, answerC(N),
-     $                  answerD(N), oneHalf, aInf, aNaN
+     $                  answerD(N), oneHalf, aInf, aNaN, relDiff
       parameter       ( threeFourth = 3.0d0 / 4,
      $                  fiveFourth = 5.0d0 / 4,
      $                  oneHalf = 1.0d0 / 2 )
@@ -86,7 +86,8 @@
           Y = DCMPLX( X(i), 0.0d0 )
           R = ABS( Y )
           if( R .ne. X(i) ) then
-              WRITE( *, FMT = 9999 ) Y, R, X(i)
+              relDiff = ABS(R-X(i))/X(i)
+              WRITE( *, FMT = 9999 ) Y, R, X(i), relDiff
           endif
   10  continue
 *
@@ -95,7 +96,8 @@
           Y = DCMPLX( 0.0d0, X(i) )
           R = ABS( Y )
           if( R .ne. X(i) ) then
-              WRITE( *, FMT = 9999 ) Y, R, X(i)
+              relDiff = ABS(R-X(i))/X(i)
+              WRITE( *, FMT = 9999 ) Y, R, X(i), relDiff
           endif
   20  continue
 *
@@ -105,7 +107,8 @@
           Y = DCMPLX( threeFourth * X(i), X(i) )
           R = ABS( Y )
           if( R .ne. answerC(i) ) then
-              WRITE( *, FMT = 9999 ) Y, R, answerC(i)
+              relDiff = ABS(R-answerC(i))/answerC(i)
+              WRITE( *, FMT = 9999 ) Y, R, answerC(i), relDiff
           endif
   30  continue
 *
@@ -115,7 +118,8 @@
           Y = DCMPLX( oneHalf * X(i), oneHalf * X(i) )
           R = ABS( Y )
           if( R .ne. answerD(i) ) then
-              WRITE( *, FMT = 9999 ) Y, R, answerD(i)
+              relDiff = ABS(R-answerD(i))/answerD(i)
+              WRITE( *, FMT = 9999 ) Y, R, answerD(i), relDiff
           endif
   40  continue
 *
@@ -123,8 +127,8 @@
       do 50 i = 1, nInf
           Y = cInf(i)
           R = ABS( Y )
-          if( R .le. HUGE(0.0d0) ) then
-              WRITE( *, FMT = 9999 ) Y, R, aInf
+          if( .not.(R .gt. HUGE(0.0d0)) ) then
+              WRITE( *, FMT = 9999 ) Y, R, aInf, aInf
           endif
   50  continue
 *
@@ -138,10 +142,10 @@
   60  continue
 *
  9998 FORMAT( ' ** ABS( ', (ES10.3,SP,ES10.3,"*I"), ' ) = ', ES10.3,
-     $        ' is not a NaN' )
+     $        ' differs from NaN' )
 *
  9999 FORMAT( ' ** ABS( ', (ES10.3,SP,ES10.3,"*I"), ' ) = ', ES10.3,
-     $        ' differs from ', ES10.3 )
+     $        ' differs from ', ES10.3, ' #relative diff = ', ES10.3 )
 *
 *     End of zabs
 *
