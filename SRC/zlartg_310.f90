@@ -1,4 +1,4 @@
-!> \brief \b CLARTG generates a plane rotation with real cosine and complex sine.
+!> \brief \b ZLARTG generates a plane rotation with real cosine and complex sine.
 !
 !  =========== DOCUMENTATION ===========
 !
@@ -8,11 +8,11 @@
 !  Definition:
 !  ===========
 !
-!       SUBROUTINE CLARTG( F, G, C, S, R )
+!       SUBROUTINE ZLARTG( F, G, C, S, R )
 !
 !       .. Scalar Arguments ..
-!       REAL(wp)              C
-!       COMPLEX(wp)           F, G, R, S
+!       REAL(wp)           C
+!       COMPLEX(wp)        F, G, R, S
 !       ..
 !
 !> \par Purpose:
@@ -20,7 +20,7 @@
 !>
 !> \verbatim
 !>
-!> CLARTG generates a plane rotation so that
+!> ZLARTG generates a plane rotation so that
 !>
 !>    [  C         S  ] . [ F ]  =  [ R ]
 !>    [ -conjg(S)  C  ]   [ G ]     [ 0 ]
@@ -40,19 +40,19 @@
 !>
 !> When F and G are real, the formulas simplify to C = F/R and
 !> S = G/R, and the returned values of C, S, and R should be
-!> identical to those returned by CLARTG.
+!> identical to those returned by DLARTG.
 !>
 !> The algorithm used to compute these quantities incorporates scaling
 !> to avoid overflow or underflow in computing the square root of the
 !> sum of squares.
 !>
-!> This is a faster version of the BLAS1 routine CROTG, except for
+!> This is a faster version of the BLAS1 routine ZROTG, except for
 !> the following differences:
 !>    F and G are unchanged on return.
 !>    If G=0, then C=1 and S=0.
 !>    If F=0, then C=0 and S is chosen so that R is real.
 !>
-!> Below, wp=>sp stands for single precision from LA_CONSTANTS module.
+!> Below, wp=>dp stands for double precision from LA_CONSTANTS module.
 !> \endverbatim
 !
 !  Arguments:
@@ -114,10 +114,10 @@
 !>
 !> \endverbatim
 !
-subroutine CLARTG( f, g, c, s, r )
+subroutine ZLARTG( f, g, c, s, r )
    use LA_CONSTANTS, &
-   only: wp=>sp, zero=>szero, one=>sone, two=>stwo, czero, &
-         rtmin=>srtmin, rtmax=>srtmax, safmin=>ssafmin, safmax=>ssafmax
+   only: wp=>dp, zero=>dzero, one=>done, two=>dtwo, czero=>zzero, &
+         rtmin=>drtmin, rtmax=>drtmax, safmin=>dsafmin, safmax=>dsafmax
 !
 !  -- LAPACK auxiliary routine (version 3.10.0) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -129,7 +129,7 @@ subroutine CLARTG( f, g, c, s, r )
    complex(wp)        f, g, r, s
 !  ..
 !  .. Local Scalars ..
-   real(wp) :: d, f1, f2, g1, g2, h2, u, v, w
+   real(wp) :: d, f1, f2, g1, g2, h2, u, v, w, noise1, noise2
    complex(wp) :: fs, gs, t
 !  ..
 !  .. Intrinsic Functions ..
@@ -144,10 +144,12 @@ subroutine CLARTG( f, g, c, s, r )
 !  .. Executable Statements ..
 !
    if( g == czero ) then
+      stop 1
       c = one
       s = czero
       r = f
    else if( f == czero ) then
+      stop 1
       c = zero
       g1 = max( abs(real(g)), abs(aimag(g)) )
       if( g1 > rtmin .and. g1 < rtmax ) then
@@ -175,36 +177,36 @@ subroutine CLARTG( f, g, c, s, r )
 !
 !        Use unscaled algorithm
 !
-         f2 = ABSSQ( f )
-         g2 = ABSSQ( g )
-         h2 = f2 + g2
-         ! if( f2 > safmin * g2 ) then
-         !    d = sqrt( one + g2/f2 )
-         !    c = one / d
-         !    if( f2 > rtmin .and. h2 < rtmax ) then
-         !       s = conjg( g )*( f / sqrt( f2*h2 ) )
-         !    else
-         !       s = conjg( g )*( f /( f2*d ) )
-         !    end if
-         !    r = f * d
-         ! else
-            if( f2 > rtmin .and. h2 < rtmax ) then
-               d = sqrt( f2*h2 )
-            else
-               d = sqrt( f2 )*sqrt( h2 )
-            end if
-            c = f2 / d
-            s = conjg( g )*( f / d )
-            r = f*( h2 / d )
-         ! end if
+         call gaussian_dist( noise1, noise2 )
+         f2 = ABSSQ( f ) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
+         call gaussian_dist( noise1, noise2 )
+         g2 = ABSSQ( g ) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
+         call gaussian_dist( noise1, noise2 )
+         h2 = (f2 + g2) * (1 + 1e-6*noise1)
+         if( f2 > rtmin .and. h2 < rtmax ) then
+            call gaussian_dist( noise1, noise2 )
+            d = sqrt( f2*h2 * (1 + 1e-6*noise1) ) * (1 + 1e-6*noise2)
+         else
+            d = sqrt( f2 )*sqrt( h2 ) * (1 + 1e-6*noise2)
+            call gaussian_dist( noise1, noise2 )
+            d = d * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
+         end if
+         call gaussian_dist( noise1, noise2 )
+         c = (f2 / d) * (1 + 1e-6*noise1)
+         s = (f / d) * (1 + 1e-6*noise2)
+         call gaussian_dist( noise1, noise2 )
+         s = (conjg( g )*s) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
+         call gaussian_dist( noise1, noise2 )
+         r = f*( h2 / d ) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
       else
 !
 !        Use scaled algorithm
 !
+         stop 1
          u = min( safmax, max( safmin, f1, g1 ) )
          gs = g / u
          g2 = ABSSQ( gs )
-         if( f1 < rtmin * u ) then
+         if( f1 < rtmin*u ) then
 !
 !           f is not well-scaled when scaled by g1.
 !           Use a different scaling for f.
@@ -223,26 +225,32 @@ subroutine CLARTG( f, g, c, s, r )
             f2 = ABSSQ( fs )
             h2 = f2 + g2
          end if
-         ! if( f2 > safmin * g2 ) then
-         !    d = sqrt( w**2 + g2/f2 )
-         !    c = w / d
-         !    if( f2 > rtmin .and. h2 < rtmax ) then
-         !       s = conjg( gs )*( fs / sqrt( f2*h2 ) )
-         !    else
-         !       s = conjg( gs )*( fs / ( f2*d ) )
-         !    end if
-         !    r = ( fs * d ) * u
-         ! else
-            if( f2 > rtmin .and. h2 < rtmax ) then
-               d = sqrt( f2*h2 )
-            else
-               d = sqrt( f2 )*sqrt( h2 )
-            end if
-            c = ( f2 / d )*w
-            s = conjg( gs )*( fs / d )
-            r = ( fs*( h2 / d ) )*u
-         ! end if
+         if( f2 > rtmin .and. h2 < rtmax ) then
+            d = sqrt( f2*h2 )
+         else
+            d = sqrt( f2 )*sqrt( h2 )
+         end if
+         c = ( f2 / d )*w
+         s = conjg( gs )*( fs / d )
+         r = ( fs*( h2 / d ) )*u
       end if
    end if
+   return
+end subroutine
+
+subroutine gaussian_dist( x, y )
+   use LA_CONSTANTS, only: sp, dp
+
+   real(dp) a, b, x, y, TWOPI
+   parameter ( TWOPI = 8*atan(1.D0) )
+   
+   ! call random_number(a)
+   ! call random_number(b)
+   a = rand(0)
+   b = rand(0)
+
+   x = sqrt(-2*log(a)) * sin(TWOPI*b)
+   y = sqrt(-2*log(a)) * cos(TWOPI*b)
+
    return
 end subroutine

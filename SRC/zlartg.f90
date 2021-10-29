@@ -129,7 +129,7 @@ subroutine ZLARTG( f, g, c, s, r )
    complex(wp)        f, g, r, s
 !  ..
 !  .. Local Scalars ..
-   real(wp) :: d, f1, f2, g1, g2, h2, u, v, w
+   real(wp) :: d, f1, f2, g1, g2, h2, u, v, w, noise1, noise2, aux
    complex(wp) :: fs, gs, t
 !  ..
 !  .. Intrinsic Functions ..
@@ -144,10 +144,12 @@ subroutine ZLARTG( f, g, c, s, r )
 !  .. Executable Statements ..
 !
    if( g == czero ) then
+      stop 1
       c = one
       s = czero
       r = f
    else if( f == czero ) then
+      stop 1
       c = zero
       g1 = max( abs(real(g)), abs(aimag(g)) )
       if( g1 > rtmin .and. g1 < rtmax ) then
@@ -175,21 +177,51 @@ subroutine ZLARTG( f, g, c, s, r )
 !
 !        Use unscaled algorithm
 !
-         f2 = ABSSQ( f )
-         g2 = ABSSQ( g )
-         h2 = f2 + g2
+         call gaussian_dist( noise1, noise2 )
+         f2 = ABSSQ( f ) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
+         call gaussian_dist( noise1, noise2 )
+         g2 = ABSSQ( g ) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
+         call gaussian_dist( noise1, noise2 )
+         h2 = (f2 + g2) * (1 + 1e-6*noise1)
+         d = one + g2/f2 * (1 + 1e-6*noise2)
+         call gaussian_dist( noise1, noise2 )
+         d = sqrt( d * (1 + 1e-6*noise1) ) * (1 + 1e-6*noise2)
+         call gaussian_dist( noise1, noise2 )
+         c = (one / d) * (1 + 1e-6*noise1)
+         r = (f * d) * (1 + 1e-6*noise2)
          if( f2 > rtmin .and. h2 < rtmax ) then
-            d = sqrt( f2*h2 )
+            call gaussian_dist( noise1, noise2 )
+            aux = sqrt( f2*h2 ) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
+            call gaussian_dist( noise1, noise2 )
+            s = ( f / aux ) * (1 + 1e-6*noise1)
+            call gaussian_dist( noise1, noise2 )
+            s = ( conjg( g )*s ) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
          else
-            d = sqrt( f2 )*sqrt( h2 )
+            call gaussian_dist( noise1, noise2 )
+            s = (f / (( f2*d ) * (1 + 1e-6*noise1))) * (1 + 1e-6*noise2)
+            call gaussian_dist( noise1, noise2 )
+            s = (conjg( g )*s) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
          end if
-         c = f2 / d
-         s = conjg( g )*( f / d )
-         r = f*( h2 / d )
+         ! if( f2 > rtmin .and. h2 < rtmax ) then
+         !    call gaussian_dist( noise1, noise2 )
+         !    d = sqrt( f2*h2 * (1 + 1e-6*noise1) ) * (1 + 1e-6*noise2)
+         ! else
+         !    d = sqrt( f2 )*sqrt( h2 ) * (1 + 1e-6*noise2)
+         !    call gaussian_dist( noise1, noise2 )
+         !    d = d * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
+         ! end if
+         ! call gaussian_dist( noise1, noise2 )
+         ! c = (f2 / d) * (1 + 1e-6*noise1)
+         ! s = (f / d) * (1 + 1e-6*noise2)
+         ! call gaussian_dist( noise1, noise2 )
+         ! s = (conjg( g )*s) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
+         ! call gaussian_dist( noise1, noise2 )
+         ! r = f*( h2 / d ) * (1 + 1e-6*noise1) * (1 + 1e-6*noise2)
       else
 !
 !        Use scaled algorithm
 !
+         stop 1
          u = min( safmax, max( safmin, f1, g1 ) )
          gs = g / u
          g2 = ABSSQ( gs )
@@ -222,5 +254,22 @@ subroutine ZLARTG( f, g, c, s, r )
          r = ( fs*( h2 / d ) )*u
       end if
    end if
+   return
+end subroutine
+
+subroutine gaussian_dist( x, y )
+   use LA_CONSTANTS, only: sp, dp
+
+   real(dp) a, b, x, y, TWOPI
+   parameter ( TWOPI = 8*atan(1.D0) )
+   
+   ! call random_number(a)
+   ! call random_number(b)
+   a = rand(0)
+   b = rand(0)
+
+   x = sqrt(-2*log(a)) * sin(TWOPI*b)
+   y = sqrt(-2*log(a)) * cos(TWOPI*b)
+
    return
 end subroutine
