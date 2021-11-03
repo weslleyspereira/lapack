@@ -229,7 +229,7 @@
 *        F2S cannot overflow, and it is accurate
 *
          call gaussian_dist( noise1, noise2 )
-         F2S = SQRT( (ONE+G2 / F2 * (1 + 1e-6*noise1))
+         F2S = SQRT( (ONE+(G2 / F2) * (1 + 1e-6*noise1))
      $            * (1 + 1e-6*noise2) )
          call gaussian_dist( noise1, noise2 )
          F2S = F2S * (1 + 1e-6*noise1)
