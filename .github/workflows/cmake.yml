@@ -138,11 +138,19 @@ jobs:
     - name: Checkout LAPACK
       uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 
+    - name: Install ninja-build tool
+      uses: seanmiddleditch/gha-setup-ninja@16b940825621068d98711680b6c3ff92201f8fc0 # v3
+
+    - name: Install Basics
+      run: |
+        sudo apt update
+        sudo apt install -y cmake gfortran
+
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: >
-        cmake -B build
+        cmake -B build -G Ninja
         -D CMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         -D CMAKE_INSTALL_PREFIX=${{github.workspace}}/lapack_install
         -D CBLAS:BOOL=ON
@@ -152,7 +160,7 @@ jobs:
         -D BUILD_SHARED_LIBS:BOOL=ON
 
     - name: Install
-      run: cmake --build build --target install -j2
+      run: cmake --build build --target install
 
     - name: Coverage
       run: |
